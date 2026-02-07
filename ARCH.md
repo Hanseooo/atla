@@ -991,4 +991,84 @@ settings = Settings()
 
 ---
 
+## Frontend Architecture
+
+The frontend is built as a modern React application with a focus on performance and developer experience. See the detailed documentation in `frontend/atla/docs/`.
+
+### Frontend Technology Stack
+
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| **Framework** | React 19 | UI library with concurrent features |
+| **Build Tool** | Vite | Fast development and building |
+| **Language** | TypeScript | Type safety across the app |
+| **Styling** | Tailwind CSS v4 | Utility-first CSS |
+| **Components** | shadcn/ui | Accessible UI components |
+| **Routing** | TanStack Router | Type-safe file-based routing |
+| **State (Server)** | TanStack Query | Server state management |
+| **State (Client)** | Zustand | Client state management |
+| **Animations** | Framer Motion | Smooth transitions |
+| **Maps** | MapCN (MapLibre) | Philippine-focused maps |
+| **Auth** | Supabase Auth | Authentication |
+| **HTTP** | Axios | API requests |
+
+### Frontend Documentation
+
+- **[ARCHITECTURE.md](frontend/atla/docs/ARCHITECTURE.md)** - Overall architecture and file structure
+- **[DATA_FLOW.md](frontend/atla/docs/DATA_FLOW.md)** - TanStack Query patterns and data fetching
+- **[ROUTING.md](frontend/atla/docs/ROUTING.md)** - File-based routing with TanStack Router
+- **[STATE_MANAGEMENT.md](frontend/atla/docs/STATE_MANAGEMENT.md)** - Zustand store patterns
+- **[.env.example](frontend/atla/.env.example)** - Environment variables template
+
+### Key Architectural Decisions
+
+1. **File-Based Routing**: Routes are defined by file structure in `src/routes/`, providing automatic type safety and code splitting.
+
+2. **Two-Layer State Management**:
+   - **TanStack Query**: For server state (trips, places, user data) with caching
+   - **Zustand**: For client state (auth, UI, temporary chat messages)
+
+3. **No Waterfalls**: Trip details are fetched as nested data (trip + days + activities in one request) to prevent sequential API calls.
+
+4. **Bottom Navigation**: Hide-on-scroll bottom tab bar for mobile-first design with Framer Motion animations.
+
+5. **Chat-First Interface**: Natural language trip planning with AI, where conversations reset on refresh but saved trips persist.
+
+### Frontend Directory Structure
+
+```
+frontend/atla/src/
+├── routes/              # File-based routes (pages)
+│   ├── __root.tsx      # Root layout
+│   ├── index.tsx       # Chat page
+│   ├── trips.index.tsx # Trips list
+│   ├── trips.$tripId.tsx # Trip detail
+│   ├── explore.index.tsx # Explore places
+│   ├── profile.index.tsx # Profile
+│   ├── login.tsx       # Login
+│   └── signup.tsx      # Signup
+├── components/         # React components
+│   ├── ui/            # shadcn components
+│   ├── layout/        # Layout components
+│   ├── chat/          # Chat feature
+│   ├── trips/         # Trip feature
+│   └── places/        # Places feature
+├── hooks/             # Custom React hooks
+├── lib/               # Utilities & config
+├── stores/            # Zustand stores
+└── types/             # TypeScript types
+```
+
+### Getting Started
+
+```bash
+cd frontend/atla
+npm install
+cp .env.example .env
+# Edit .env with your Supabase credentials
+npm run dev
+```
+
+---
+
 Now I'll create the complete project scaffolding with all the necessary files.

@@ -1,15 +1,10 @@
 # AGENTS.md - AI Coding Agent Instructions
 
-This file provides context and guidelines for AI coding agents working on the Philippine AI Travel Planning application.
-
-## Project Overview
-
-A full-stack AI-powered travel planning app for the Philippines with a chat-first interface powered by Google Gemini.
+Philippine AI Travel Planning app - full-stack with React frontend and FastAPI backend.
 
 **Tech Stack:**
-- Frontend: React + TypeScript + Vite + Tailwind CSS + shadcn/ui
-- Backend: FastAPI + Python 3.11+ + SQLModel (SQLAlchemy + Pydantic)
-- Database: PostgreSQL via Supabase with Row Level Security (RLS)
+- Frontend: React 19 + TypeScript + Vite + Tailwind CSS v4 + TanStack Router/Query + Zustand
+- Backend: FastAPI + Python 3.11+ + SQLModel + asyncpg + PostgreSQL (Supabase)
 - AI: LangChain + Google Gemini 2.5 flash-lite
 - Cache: Redis via Upstash
 
@@ -18,258 +13,162 @@ A full-stack AI-powered travel planning app for the Philippines with a chat-firs
 ### Backend (Python/FastAPI)
 
 ```bash
-cd backend
-source venv/bin/activate  # Windows: venv\Scripts\activate
+cd backend && source venv/bin/activate  # Windows: venv\Scripts\activate
 
-# Development server
+# Development
 uvicorn app.main:app --reload
 
 # Testing
-pytest                    # Run all tests
-pytest tests/test_specific.py  # Run single test file
-pytest -k test_name      # Run specific test by name
-pytest -v                # Verbose output
+pytest                           # Run all tests
+pytest tests/test_specific.py   # Run single test file
+pytest -k test_name            # Run specific test by name
+pytest -v                      # Verbose output
 
 # Linting & Formatting
-black app/               # Format Python code
-ruff app/                # Lint Python code
-ruff check app/          # Check only (no fix)
-ruff check --fix app/    # Auto-fix issues
+black app/                     # Format Python code
+ruff check app/                # Check only
+ruff check --fix app/          # Auto-fix issues
 
 # Database
-alembic revision --autogenerate -m "Description"  # Create migration
-alembic upgrade head     # Apply all migrations
-alembic downgrade -1     # Rollback one migration
+alembic revision --autogenerate -m "Description"
+alembic upgrade head           # Apply migrations
+alembic downgrade -1           # Rollback one migration
 ```
 
 ### Frontend (React/TypeScript)
 
 ```bash
-cd frontend
+cd frontend/atla
 
 # Development
-npm run dev              # Start Vite dev server
+npm run dev                    # Start Vite dev server
+npm run preview               # Preview production build
+npm run build                 # Production build
 
-# Building
-npm run build            # Production build
-npm run preview          # Preview production build
+# Testing (Vitest not yet configured - add with: npm install -D vitest @testing-library/react @testing-library/jest-dom)
+# Then use: npx vitest run src/components/MyComponent.test.tsx
 
-# Testing
-npm run test             # Run all tests
-npm run test:ui          # Run tests with UI
-npm run test -- --run    # Run tests once (headless)
-npm run test -- MyComponent.test.tsx  # Run specific test
-
-# Linting & Formatting
-npm run lint             # Run ESLint
-npm run lint -- --fix    # Auto-fix ESLint issues
-npm run format           # Run Prettier
+# Linting
+npm run lint                  # Run ESLint
+npm run lint -- --fix         # Auto-fix ESLint issues
 ```
 
 ## Code Style Guidelines
 
 ### Python (Backend)
 
-**Formatting (Black):**
-- Line length: 88 characters
-- Use double quotes for strings
-- Trailing commas in multi-line structures
+**Formatting (Black):** Line length 88, Python 3.11+, double quotes, trailing commas.
 
-**Linting (Ruff):**
-- Follow PEP 8 conventions
-- Import sorting: standard library → third-party → local
-- Type hints required for function signatures
+**Linting (Ruff):** PEP 8, import order (stdlib → third-party → local), rules: E, W, F, I, N, UP.
 
-**Naming Conventions:**
-- Classes: `PascalCase` (e.g., `TripRepository`, `UserProfile`)
-- Functions/Variables: `snake_case` (e.g., `get_user_trips`, `user_id`)
-- Constants: `UPPER_SNAKE_CASE` (e.g., `MAX_TRIP_DAYS`)
-- Private methods: `_leading_underscore`
-- SQLModel models: Singular nouns (e.g., `Trip`, `Activity`)
-- Repository classes: `{Model}Repository` (e.g., `TripRepository`)
+**Naming:** Classes `PascalCase`, functions/variables `snake_case`, constants `UPPER_SNAKE_CASE`, private `_leading_underscore`, models singular (`Trip`), repos `{Model}Repository`.
 
-**Import Structure:**
+**Imports:**
 ```python
 # 1. Standard library
 from typing import Optional, List
 from datetime import datetime
 
 # 2. Third-party
-from sqlmodel import SQLModel, Field, Relationship
-from fastapi import APIRouter, Depends, HTTPException
+from sqlmodel import SQLModel, Field
+from fastapi import APIRouter, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# 3. Local modules
+# 3. Local modules (known-first-party: app)
 from app.models.trip import Trip
 from app.repositories.trip_repo import TripRepository
-from app.db.session import get_session
 ```
 
-**Error Handling:**
-- Use custom exceptions in `app/exceptions/`
-- Wrap external API calls in try/except blocks
-- Log errors with context: `logger.exception("Failed to fetch place: %s", place_id)`
-- Return appropriate HTTP status codes (400, 404, 500)
+**Types:** Required for all params/returns. Use `Optional[T]` for nullable, SQLModel for responses, `Generic[ModelType]` for repos.
 
-**Type Hints:**
-- Required for all function parameters and return types
-- Use `Optional[T]` for nullable types
-- Use SQLModel response models for API responses
+**Errors:** Use `app/exceptions/`, wrap external APIs, log with context: `logger.exception("Failed: %s", entity_id)`, return proper HTTP codes (400, 404, 500, 503).
 
 ### TypeScript/React (Frontend)
 
-**Formatting (Prettier):**
-- Semicolons: true
-- Single quotes: true
-- Tab width: 2 spaces
-- Trailing commas: es5
+**Formatting:** ESLint/TypeScript, semicolons true, single quotes, 2-space tabs.
 
-**Naming Conventions:**
-- Components: `PascalCase` (e.g., `TripCard`, `ChatInterface`)
-- Hooks: `usePascalCase` (e.g., `useAuth`, `useTrips`)
-- Functions/Variables: `camelCase` (e.g., `fetchTrips`, `userId`)
-- Types/Interfaces: `PascalCase` (e.g., `TripDetail`, `UserProfile`)
-- Constants: `UPPER_SNAKE_CASE` (e.g., `API_BASE_URL`)
+**Naming:** Components `PascalCase` (`TripCard`), hooks `usePascalCase`, functions/variables `camelCase`, types `PascalCase`, constants `UPPER_SNAKE_CASE`.
 
 **File Structure:**
-- Components: `src/components/{ComponentName}.tsx`
-- Hooks: `src/hooks/use{HookName}.ts`
-- Types: `src/types/{domain}.ts`
+- Routes: `src/routes/{route}.tsx` (TanStack file-based routing)
+- Components: `src/components/{Name}.tsx`
+- Hooks: `src/hooks/use{Name}.ts`
 - Utils: `src/lib/{utility}.ts`
 
 **Component Pattern:**
 ```typescript
-// Props interface
-interface TripCardProps {
-  trip: Trip;
-  onDelete?: (id: number) => void;
+interface TripCardProps { trip: Trip; onDelete?: (id: number) => void; }
+
+export function TripCard({ trip, onDelete }: TripCardProps) {
+  return (/* JSX */);
 }
 
-// Component
-export function TripCard({ trip, onDelete }: TripCardProps) {
-  // Component logic
-  return (
-    // JSX
-  );
-}
+// TanStack Router
+defineFileRoute('/trips/$tripId')({
+  component: TripDetailPage,
+  beforeLoad: requireAuth,
+})
 ```
+
+**Path Aliases:** `@/` maps to `./src/`. Use: `import { Button } from '@/components/ui/button'`
 
 ## Architecture Patterns
 
-### Backend Patterns
+### Backend
 
-**Repository Pattern:**
-- All database access through repository classes
-- Base repository in `app/repositories/base.py`
-- Specific repos extend `BaseRepository[ModelType]`
+**Repository Pattern:** All DB access through repos. Base: `app/repositories/base.py` with `BaseRepository[ModelType]`. Specific repos extend base.
 
-**Dependency Injection:**
-- Use FastAPI's `Depends()` for session, auth, etc.
-- Define dependencies in `app/api/deps.py`
+**Dependency Injection:** Use FastAPI `Depends()` for session/auth. Define in `app/api/deps.py`.
 
-**SQLModel Best Practices:**
-- One model per file in `app/models/`
-- Use `table=True` for database tables
-- Separate response models (no `table=True`) for API responses
-- Use Field() for validation and constraints
+**SQLModel:** One model per file in `app/models/`. Use `table=True` for DB tables. Separate response models (no `table=True`). Use `Field()` for validation. Use `sa_column=Column(JSONB)` for JSON.
 
-**Async Pattern:**
-- All database operations are async using `AsyncSession`
-- Repository methods use `async def`
-- Use `await` consistently
+**Async:** All DB ops async via `AsyncSession`. Repository methods use `async def`.
 
-### Frontend Patterns
+### Frontend
 
-**Data Fetching:**
-- Use React Query (TanStack Query) for server state
-- Define query keys consistently: `['trips', userId]`, `['trip', tripId]`
-- Use mutations for POST/PUT/DELETE operations
+**Data Fetching:** Use TanStack Query for server state. Query keys: `['trips', userId]`, `['trip', tripId]`. Mutations for POST/PUT/DELETE.
 
-**State Management:**
-- React Query for server state
-- React Context for auth state
-- useState/useReducer for local component state
+**State:** React Query (server), Zustand (global auth/UI), useState/useReducer (local).
 
-**Error Handling:**
-- Use React Query's error handling
-- Display user-friendly error messages
-- Log errors to console in development
+**Routing:** File-based in `src/routes/`. Files match URL: `trips.$tripId.tsx` → `/trips/123`. Use `beforeLoad` for auth. Index routes: `index.tsx`, `trips.index.tsx`.
 
-## Security Guidelines
+**Errors:** React Query error handling + error boundaries. User-friendly messages. Log in dev.
+
+## Security
 
 - Never commit `.env` files
-- Use Supabase Row Level Security (RLS) policies
-- Validate all user inputs with Pydantic models
-- Sanitize data before rendering in UI
+- Use Supabase Row Level Security (RLS)
+- Validate inputs with Pydantic
+- Sanitize UI rendering
 - Use parameterized queries (SQLModel handles this)
 
 ## API Conventions
 
-**Backend Endpoints:**
-- Use `/api/` prefix for all routes
-- RESTful resource naming: `/api/trips`, `/api/trips/{id}`
-- Use HTTP methods: GET, POST, PUT, DELETE
-- Return consistent response structure
+**Backend:** `/api/` prefix. RESTful: `/api/trips`, `/api/trips/{id}`. Methods: GET, POST, PUT, DELETE, PATCH.
 
-**Frontend API Calls:**
-- Use axios or fetch with base URL from env
-- Handle errors gracefully
-- Use TypeScript types for API responses
-
-## Testing Guidelines
-
-### Python Testing
-- Use pytest with pytest-asyncio for async tests
-- Test files: `tests/test_{module}.py`
-- Fixtures in `tests/conftest.py`
-- Mock external APIs (Gemini, Brave, etc.)
-
-### TypeScript Testing
-- Use Vitest (configured with Vite)
-- Test files: `{Component}.test.tsx` or `{module}.test.ts`
-- Use React Testing Library for component tests
-- Mock API calls with MSW (Mock Service Worker)
+**Frontend:** Use axios. Base URL from `VITE_API_URL`. Handle errors with React Query.
 
 ## Environment Variables
 
-### Backend (.env)
-```
-ENVIRONMENT=development
-DATABASE_URL=postgresql+asyncpg://...
-SUPABASE_URL=...
-GOOGLE_API_KEY=...
-BRAVE_API_KEY=...
-REDIS_URL=...
-```
+**Backend (.env):** `ENVIRONMENT`, `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `GOOGLE_API_KEY`, `BRAVE_API_KEY`, `REDIS_URL`
 
-### Frontend (.env)
-```
-VITE_API_URL=http://localhost:8000
-VITE_SUPABASE_URL=...
-VITE_SUPABASE_ANON_KEY=...
-```
-
-Always use `VITE_` prefix for frontend env vars to expose them to the app.
+**Frontend (.env):** `VITE_API_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (always use `VITE_` prefix)
 
 ## Development Workflow
 
-1. **Start backend**: `cd backend && uvicorn app.main:app --reload`
-2. **Start frontend**: `cd frontend && npm run dev`
-3. **Make changes** following style guidelines
-4. **Run linting**: `ruff check app/` and `npm run lint`
-5. **Run tests**: `pytest` and `npm run test`
-6. **Format code**: `black app/` and `npm run format`
-
-## Documentation References
-
-- Architecture: See `ARCH.md` for detailed system design
-- Setup: See `SETUP.md` for environment setup
-- API Docs: Available at `http://localhost:8000/docs` when backend running
+1. Start backend: `cd backend && uvicorn app.main:app --reload`
+2. Start frontend: `cd frontend/atla && npm run dev`
+3. Make changes following style guidelines
+4. Run linting: `ruff check app/` and `npm run lint`
+5. Run tests: `pytest` (backend configured)
+6. Format: `black app/`
 
 ## Important Notes
 
-- This project uses SQLModel which combines SQLAlchemy ORM with Pydantic validation
-- All database operations are async using asyncpg
-- Repository pattern is mandatory for database access
-- RLS policies protect user data in Supabase
-- AI features use LangChain with Google Gemini
+- SQLModel = SQLAlchemy ORM + Pydantic validation
+- All DB ops async via asyncpg
+- Repository pattern mandatory for DB access
+- RLS policies protect user data
+- AI uses LangChain + Google Gemini
+- Tailwind CSS v4 with `@tailwindcss/vite`
+- TanStack Router: file-based routing, create files in `src/routes/`
