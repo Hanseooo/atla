@@ -1,5 +1,23 @@
 # Database Guide
 
+## Quick Start
+
+```bash
+# 1. Make sure you're in the backend directory with venv activated
+cd backend
+venv\Scripts\activate  # Windows
+# source venv/bin/activate  # Mac/Linux
+
+# 2. Create a migration after changing models
+alembic revision --autogenerate -m "Add new table"
+
+# 3. Apply migrations to database
+alembic upgrade head
+
+# 4. Check status
+alembic current
+```
+
 ## Overview
 
 We use **PostgreSQL** with **asyncpg** for async database operations, and **SQLModel** as our ORM.
@@ -70,17 +88,23 @@ Legend:
 
 **Analogy:** Like an employee ID card with extra details
 
-```sql
-CREATE TABLE user_profiles (
-    id TEXT PRIMARY KEY,              -- Supabase Auth ID
-    username TEXT UNIQUE,             -- @username
-    email TEXT,                       -- user@example.com
-    display_name TEXT,                -- "John Doe"
-    avatar_url TEXT,                  -- Profile picture URL
-    preferences JSONB,                -- {"theme": "dark", "currency": "PHP"}
-    created_at TIMESTAMP,             -- When account created
-    updated_at TIMESTAMP              -- When last updated
-);
+```python
+from sqlmodel import SQLModel, Field
+from typing import Optional
+from datetime import datetime
+
+class UserProfile(SQLModel, table=True):
+    """User profile linked to Supabase Auth"""
+    __tablename__ = "user_profiles"
+    
+    id: str = Field(primary_key=True)  # Supabase Auth ID
+    username: Optional[str] = Field(unique=True, max_length=50)
+    email: Optional[str] = None
+    display_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    preferences: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSONB))
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 ```
 
 **Relationships:**
@@ -93,24 +117,31 @@ CREATE TABLE user_profiles (
 
 **Analogy:** Like a travel binder with trip details
 
-```sql
-CREATE TABLE trips (
-    id SERIAL PRIMARY KEY,            -- Auto-increment ID
-    user_id TEXT REFERENCES user_profiles(id),
-    title TEXT,                       -- "Philippines Beach Trip"
-    destination TEXT,                 -- "Cebu, Philippines"
-    days INTEGER,                     -- Number of days (1-30)
-    budget TEXT,                      -- "low", "mid", or "luxury"
-    travel_style TEXT[],              -- ["adventure", "relaxation"]
-    companions TEXT,                  -- "solo", "couple", "family"
-    time_of_year TEXT,                -- "December 2024"
-    total_budget_min INTEGER,         -- Estimated min cost
-    total_budget_max INTEGER,         -- Estimated max cost
-    is_public BOOLEAN,                -- Can others see this?
-    view_count INTEGER,               -- How many views
-    created_at TIMESTAMP,
-    updated_at TIMESTAMP
-);
+```python
+from sqlmodel import SQLModel, Field, Relationship
+from typing import Optional, List
+from datetime import datetime
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Column
+
+class Trip(SQLModel, table=True):
+    """User trip itineraries"""
+    __tablename__ = "trips"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: str = Field(foreign_key="user_profiles.id", index=True)
+    title: str = Field(max_length=200)
+    destination: str = Field(index=True, max_length=100)
+    days: int = Field(ge=1, le=30)
+    budget: Optional[str] = Field(default="mid", max_length=20)
+    travel_style: List[str] = Field(default_factory=list, sa_column=Column(JSONB, default=list))
+    companions: Optional[str] = Field(default="solo", max_length=20)
+    total_budget_min: Optional[int] = None
+    total_budget_max: Optional[int] = None
+    is_public: bool = Field(default=False)
+    view_count: int = Field(default=0)
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 ```
 
 **Relationships:**
@@ -123,17 +154,23 @@ CREATE TABLE trips (
 
 **Analogy:** Daily pages in a travel planner
 
-```sql
-CREATE TABLE trip_days (
-    id SERIAL PRIMARY KEY,
-    trip_id INTEGER REFERENCES trips(id) ON DELETE CASCADE,
-    day_number INTEGER,               -- Day 1, Day 2, etc.
-    title TEXT,                       -- "Arrival in Cebu"
-    date DATE,                        -- 2024-12-01
-    total_cost_min INTEGER,           -- Estimated cost for day
-    total_cost_max INTEGER,
-    created_at TIMESTAMP
-);
+```python
+from sqlmodel import SQLModel, Field
+from typing import Optional
+from datetime import date, datetime
+
+class TripDay(SQLModel, table=True):
+    """Individual day in a trip"""
+    __tablename__ = "trip_days"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    trip_id: int = Field(foreign_key="trips.id", index=True)
+    day_number: int
+    title: Optional[str] = Field(default=None, max_length=200)
+    date: Optional[date] = None
+    total_cost_min: Optional[int] = None
+    total_cost_max: Optional[int] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 ```
 
 **Relationships:**
@@ -145,28 +182,30 @@ CREATE TABLE trip_days (
 
 **Analogy:** Specific items on a daily schedule
 
-```sql
-CREATE TABLE activities (
-    id SERIAL PRIMARY KEY,
-    trip_day_id INTEGER REFERENCES trip_days(id) ON DELETE CASCADE,
-    name TEXT,                        -- "Visit Kawasan Falls"
-    description TEXT,                 -- Details about the activity
-    category TEXT,                    -- "attraction", "restaurant", "transport"
-    place_id TEXT,                    -- Link to places table
-    latitude DECIMAL(10,8),          -- GPS coordinates
-    longitude DECIMAL(11,8),
-    address TEXT,                     -- Full address
-    duration_minutes INTEGER,         -- How long it takes
-    cost_min INTEGER,                 -- Min cost
-    cost_max INTEGER,                 -- Max cost
-    start_time TEXT,                  -- "09:00"
-    end_time TEXT,                    -- "12:00"
-    booking_required BOOLEAN,         -- Need reservation?
-    booking_url TEXT,                 -- Where to book
-    notes TEXT,                       -- Additional notes
-    sort_order INTEGER,               -- Display order
-    created_at TIMESTAMP
-);
+```python
+from sqlmodel import SQLModel, Field
+from typing import Optional
+from datetime import datetime
+
+class Activity(SQLModel, table=True):
+    """Activities within a trip day"""
+    __tablename__ = "activities"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    trip_day_id: int = Field(foreign_key="trip_days.id")
+    name: str = Field(max_length=200)
+    description: Optional[str] = None
+    category: Optional[str] = Field(default=None, max_length=50)
+    place_id: Optional[str] = Field(default=None, max_length=100)
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    duration_minutes: Optional[int] = None
+    cost_min: Optional[int] = None
+    cost_max: Optional[int] = None
+    start_time: Optional[str] = Field(default=None, max_length=10)
+    booking_required: bool = Field(default=False)
+    sort_order: int = Field(default=0)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 ```
 
 **Relationships:**
@@ -230,17 +269,42 @@ Development:                    Production:
 
 ```bash
 # Create a new migration (auto-detects changes)
-cd backend
-venv\Scripts\alembic.exe revision --autogenerate -m "Add places table"
+alembic revision --autogenerate -m "Add places table"
 
 # Apply all pending migrations
-venv\Scripts\alembic.exe upgrade head
+alembic upgrade head
 
 # Roll back one migration
-venv\Scripts\alembic.exe downgrade -1
+alembic downgrade -1
 
 # Check current version
-venv\Scripts\alembic.exe current
+alembic current
+
+# View migration history
+alembic history --verbose
+```
+
+### Troubleshooting
+
+**"No module named 'alembic'"**
+```bash
+# Make sure you're in the backend directory and venv is activated
+cd backend
+venv\Scripts\activate  # Windows
+alembic --version
+```
+
+**"Table already exists" error**
+```bash
+# If database was created manually, mark all migrations as applied
+alembic stamp head
+```
+
+**"Can't locate revision" error**
+```bash
+# Reset to a known good state (WARNING: will delete unapplied migrations)
+alembic downgrade base
+alembic upgrade head
 ```
 
 ## Working with Data
