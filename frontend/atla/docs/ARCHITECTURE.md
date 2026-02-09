@@ -99,18 +99,29 @@ Think of our frontend like a **movie theater experience**:
 ```
 frontend/atla/src/
 │
-├── routes/                    # 🎬 Movie Screens (Pages)
-│   ├── __root.tsx            # Root layout with providers
-│   ├── index.tsx             # / - Home (Trip Dashboard)
-│   ├── chat.tsx              # /chat - AI trip planning
-│   ├── trips.index.tsx       # /trips - My trips list
-│   ├── trips.$tripId.tsx     # /trips/123 - Trip detail
-│   ├── explore.index.tsx     # /explore - Browse places
-│   ├── profile.index.tsx     # /profile - User settings
-│   ├── login.tsx             # /login - Authentication
-│   └── signup.tsx            # /signup - Create account
+├── pages/                    # 📄 Page Components (Route Views)
+│   ├── index.ts              # Barrel exports
+│   ├── LoginPage.tsx         # Login form page
+│   ├── SignupPage.tsx        # Signup form page
+│   ├── HomePage.tsx          # Trip dashboard
+│   ├── ChatPage.tsx          # AI chat interface
+│   ├── TripsPage.tsx         # Trips list
+│   ├── TripDetailPage.tsx    # Trip detail view
+│   ├── ExplorePage.tsx       # Places exploration
+│   └── ProfilePage.tsx       # User profile
 │
-├── components/               # 🎭 Actors & Props
+├── routes/                    # 🎬 Route Definitions (Thin Wrappers)
+│   ├── __root.tsx            # Root layout with providers
+│   ├── index.tsx             # / - Imports HomePage
+│   ├── chat.tsx              # /chat - Imports ChatPage
+│   ├── trips.index.tsx       # /trips - Imports TripsPage
+│   ├── trips.$tripId.tsx     # /trips/123 - Imports TripDetailPage
+│   ├── explore.index.tsx     # /explore - Imports ExplorePage
+│   ├── profile.index.tsx     # /profile - Imports ProfilePage
+│   ├── login.tsx             # /login - Imports LoginPage
+│   └── signup.tsx            # /signup - Imports SignupPage
+│
+├── components/               # 🎭 Reusable UI Components
 │   ├── ui/                  # shadcn components (direct import)
 │   │   ├── button.tsx
 │   │   ├── card.tsx
@@ -185,7 +196,46 @@ login.tsx              →  /login
 (underscore prefix)    →  No layout (auth pages)
 ```
 
-### 2. State Management Strategy
+### 2. Pages vs Routes Pattern
+
+We separate **route definitions** from **page components** for better organization:
+
+```
+❌ WITHOUT PATTERN (all in one file):
+routes/login.tsx          # 100+ lines with routing + UI + logic
+
+✅ WITH PATTERN (separated):
+pages/LoginPage.tsx       # UI component (reusable, testable)
+routes/login.tsx          # 10 lines - just imports LoginPage
+```
+
+**Benefits:**
+- ✅ **Separation of Concerns** - Routes handle routing, pages handle UI
+- ✅ **Reusability** - Page components can be used in modals, stories, tests
+- ✅ **Testability** - Easy to test page logic without router setup
+- ✅ **Clean Route Files** - Routes become simple 5-10 line wrappers
+- ✅ **Better Organization** - Clear distinction between routing and presentation
+
+**Example:**
+```typescript
+// routes/login.tsx (thin wrapper)
+export const Route = createFileRoute('/login')({
+  component: LoginRoute,
+  beforeLoad: requireGuest,
+})
+
+function LoginRoute() {
+  const navigate = useNavigate()
+  return <LoginPage onLogin={() => navigate({ to: '/' })} />
+}
+
+// pages/LoginPage.tsx (full component with UI, logic, state)
+export function LoginPage({ onLogin }: LoginPageProps) {
+  // Form state, validation, API calls, UI markup...
+}
+```
+
+### 3. State Management Strategy
 
 **Two-Layer Approach:**
 
@@ -226,7 +276,7 @@ login.tsx              →  /login
 - **TanStack Query**: Data from API, needs caching, shared across components
 - **Zustand**: UI state, auth tokens, temporary data, component-local state
 
-### 3. Data Fetching Strategy
+### 4. Data Fetching Strategy
 
 **No Waterfalls Pattern:**
 
@@ -247,7 +297,7 @@ const trip = await api.get(`/api/trips/${id}`)
 - Better user experience
 - Reduced server load
 
-### 4. Authentication & Route Guards
+### 5. Authentication & Route Guards
 
 **Centralized Auth Guards:**
 
@@ -300,7 +350,7 @@ export const Route = createFileRoute('/login')({
 - `/login` - Sign in
 - `/signup` - Create account
 
-### 5. Navigation Pattern
+### 6. Navigation Pattern
 
 **Bottom Tab Bar (Hide on Scroll):**
 
@@ -321,7 +371,7 @@ export const Route = createFileRoute('/login')({
 - Smooth animation with Framer Motion
 - 4 tabs: Chat, Trips, Explore, Profile
 
-### 5. Chat-First Interface
+### 7. Chat-First Interface
 
 **Purpose:** Natural language trip planning powered by AI
 

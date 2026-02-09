@@ -1,18 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { requireAuth } from '../lib/auth-guards'
+import { TripDetailPage } from '../pages/TripDetailPage'
 
 export const Route = createFileRoute('/trips/$tripId')({
-  component: TripDetailPage,
+  component: TripDetailRoute,
   beforeLoad: requireAuth,
 })
 
-function TripDetailPage() {
-  const { tripId } = Route.useParams()
-  
-  return (
-    <div>
-      <div>Trip Detail Page</div>
-      <div>Trip ID: {tripId}</div>
-    </div>
-  )
+function TripDetailRoute() {
+  return <TripDetailPage />
 }

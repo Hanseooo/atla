@@ -1,11 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { requireAuth } from '../lib/auth-guards'
+import { ExplorePage } from '../pages/ExplorePage'
 
 export const Route = createFileRoute('/explore/')({
-  component: ExplorePage,
+  component: ExploreRoute,
   beforeLoad: requireAuth,
 })
 
-function ExplorePage() {
-  return <div>Explore Page</div>
+function ExploreRoute() {
+  return <ExplorePage />
 }
