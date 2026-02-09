@@ -1,4 +1,4 @@
-import { createRootRoute, Outlet, redirect } from '@tanstack/react-router'
+import { createRootRoute, Outlet } from '@tanstack/react-router'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { queryClient } from '../lib/query-client'

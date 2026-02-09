@@ -17,7 +17,7 @@ export function useUsernameCheck(debounceMs: number = 500) {
   const [isChecking, setIsChecking] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Use ref instead of state to avoid re-renders
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Track request ID to prevent race conditions
   const requestIdRef = useRef<number>(0)
   

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { supabase, type User, type Session } from '../lib/supabase'
-import api from '../lib/api'
+import { get as apiGet, post as apiPost } from '../lib/api'
 import { router } from '../router'
 import type { UserProfile, CheckUsernameResponse } from '../types'
 
@@ -51,11 +51,10 @@ export const useAuthStore = create<AuthState>()(
           const { data: { session } } = await supabase.auth.getSession()
           
           // If session exists, fetch user profile
-          let profile = null
+          let profile: UserProfile | null = null
           if (session?.user) {
             try {
-              const response = await api.get('/auth/me')
-              profile = response
+              profile = await apiGet<UserProfile>('/auth/me')
             } catch (err: any) {
               // Profile doesn't exist yet (edge case)
               console.warn('Profile not found for user:', session.user.id)
@@ -86,10 +85,9 @@ export const useAuthStore = create<AuthState>()(
           if (error) throw error
           
           // Fetch user profile after login
-          let profile = null
+          let profile: UserProfile | null = null
           try {
-            const response = await api.get('/auth/me')
-            profile = response
+            profile = await apiGet<UserProfile>('/auth/me')
           } catch (err: any) {
             // Profile doesn't exist - this is an edge case
             // User might have been created before the trigger existed
@@ -127,7 +125,7 @@ export const useAuthStore = create<AuthState>()(
           // Step 2: Create/enrich profile via backend API
           // This updates the trigger-created profile with username
           try {
-            const profileResponse = await api.post('/auth/profile', {
+            const profileResponse = await apiPost<UserProfile>('/auth/profile', {
               username,
               email,
             })
@@ -163,16 +161,15 @@ export const useAuthStore = create<AuthState>()(
       },
       
       // Check username availability
-      checkUsername: async (username: string) => {
-        const response = await api.get(`/auth/check-username?username=${encodeURIComponent(username)}`)
-        return response
+      checkUsername: async (username: string): Promise<CheckUsernameResponse> => {
+        return await apiGet<CheckUsernameResponse>(`/auth/check-username?username=${encodeURIComponent(username)}`)
       },
       
       // Create user profile (called separately or for retry)
       createUserProfile: async (username: string, email: string) => {
         set({ isLoading: true, profileCreationError: null })
         try {
-          const profileResponse = await api.post('/auth/profile', {
+          const profileResponse = await apiPost<UserProfile>('/auth/profile', {
             username,
             email,
           })

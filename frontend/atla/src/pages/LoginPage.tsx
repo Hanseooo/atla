@@ -13,7 +13,7 @@ interface LoginPageProps {
   onLogin?: () => void
 }
 
-export function LoginPage({ redirectTo, onLogin }: LoginPageProps) {
+export function LoginPage({ onLogin }: LoginPageProps) {
   const signIn = useAuthStore((state) => state.signIn)
   const isLoading = useAuthStore((state) => state.isLoading)
   

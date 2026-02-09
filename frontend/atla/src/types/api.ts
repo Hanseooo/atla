@@ -5,8 +5,8 @@
  * Complements the types defined in lib/api.ts
  */
 
-import type { Trip, TripWithDetails, TripPublic, TripTemplate } from './trip'
-import type { Place, PlacePublic, SavedPlace } from './place'
+import type { Trip, TripWithDetails } from './trip'
+import type { Place, SavedPlace } from './place'
 import type { UserProfile, UserProfilePublic } from './user'
 
 /**
