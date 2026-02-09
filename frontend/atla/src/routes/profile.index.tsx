@@ -1,11 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { requireAuth } from '../lib/auth-guards'
+import { ProfilePage } from '../pages/ProfilePage'
 
 export const Route = createFileRoute('/profile/')({
-  component: ProfilePage,
+  component: ProfileRoute,
   beforeLoad: requireAuth,
 })
 
-function ProfilePage() {
-  return <div>Profile Page</div>
+function ProfileRoute() {
+  return <ProfilePage />
 }

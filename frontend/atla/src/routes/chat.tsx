@@ -1,11 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { requireAuth } from '../lib/auth-guards'
+import { ChatPage } from '../pages/ChatPage'
 
 export const Route = createFileRoute('/chat')({
-  component: ChatPage,
+  component: ChatRoute,
   beforeLoad: requireAuth,
 })
 
-function ChatPage() {
-  return <div>Chat Page</div>
+function ChatRoute() {
+  return <ChatPage />
 }
