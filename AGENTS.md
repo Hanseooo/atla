@@ -1,6 +1,6 @@
 # AGENTS.md - AI Coding Agent Instructions
 
-Philippine AI Travel Planning app - full-stack with React frontend and FastAPI backend.
+Atla - A full-stack Philippine AI Travel Planning app with React frontend and FastAPI backend.
 
 **Tech Stack:**
 - Frontend: React 19 + TypeScript + Vite + Tailwind CSS v4 + TanStack Router/Query + Zustand
@@ -172,3 +172,231 @@ defineFileRoute('/trips/$tripId')({
 - AI uses LangChain + Google Gemini
 - Tailwind CSS v4 with `@tailwindcss/vite`
 - TanStack Router: file-based routing, create files in `src/routes/`
+
+---
+
+## AI Agent Guidelines
+
+### Decision Making Protocol
+
+AI agents must follow this protocol when working on the codebase:
+
+**✅ Safe to Proceed (No Permission Needed):**
+- Creating new files and components
+- Code refactoring and cleanup
+- Documentation updates
+- Adding tests
+- UI/UX improvements within existing patterns
+- Bug fixes with clear solutions
+
+**❌ Must Ask User First:**
+- Architecture changes or pattern modifications
+- Breaking changes to existing APIs
+- Adding new dependencies (npm/pip packages)
+- Database schema changes
+- Removing existing features
+- Changes to authentication/authorization logic
+- Production deployment steps
+
+**❌ User Handles (Never Do These):**
+- Git operations (merge, rebase, force push)
+- Resolving merge conflicts
+- Production deployments
+- Direct commits to `main` branch
+- Rewriting git history
+
+### Communication Guidelines
+
+**When to Ask Questions:**
+- Requirements are ambiguous or unclear
+- Multiple valid approaches exist (present options with trade-offs)
+- Unfamiliar with a specific pattern or convention
+- Encounter unexpected errors or edge cases
+- Need access to credentials or environment variables
+
+**When to Proceed:**
+- Task is clearly defined and within scope
+- Following established patterns from documentation
+- Changes are isolated and reversible
+- No breaking changes introduced
+
+**Stopping Points:**
+- Always stop and ask before proceeding if uncertain
+- Never assume user wants breaking changes
+- Never push to remote branches without explicit permission
+- Never run destructive commands (drop database, delete migrations, etc.)
+
+### Branch Naming for AI Tasks
+
+When AI agents create branches, use this naming convention:
+
+```
+feat/ai-{description}       # New features
+fix/ai-{description}        # Bug fixes
+docs/ai-{description}       # Documentation updates
+chore/ai-{description}      # Maintenance tasks
+refactor/ai-{description}   # Code refactoring
+test/ai-{description}       # Adding tests
+```
+
+**Examples:**
+- `feat/ai-landing-page`
+- `fix/ai-login-redirect`
+- `docs/ai-api-endpoints`
+- `chore/ai-update-dependencies`
+
+### Commit Message Convention
+
+AI agents must follow **Conventional Commits** format:
+
+```
+<type>(<scope>): <subject>
+
+[optional body]
+
+[optional footer]
+```
+
+**Types:**
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation only
+- `style`: Code style changes (formatting, semicolons, etc.)
+- `refactor`: Code refactoring without behavior changes
+- `test`: Adding or updating tests
+- `chore`: Build process, dependencies, maintenance
+
+**Scopes (optional but recommended):**
+- `frontend`: React/TypeScript code
+- `backend`: Python/FastAPI code
+- `api`: API endpoints
+- `db`: Database models/migrations
+- `auth`: Authentication-related
+- `ui`: UI components
+
+**Examples:**
+```bash
+feat(frontend): add user authentication
+fix(backend): resolve login redirect bug
+docs(api): update swagger documentation
+refactor(frontend): simplify trip card component
+test(backend): add unit tests for auth service
+chore(deps): update tanstack router to v1.20
+```
+
+### Error Handling for AI Agents
+
+**When Build/Type Check Fails:**
+1. Read error messages carefully
+2. Identify root cause
+3. Fix all errors systematically
+4. Run checks again: `npm run typecheck` (frontend) or check Python syntax (backend)
+5. Only ask user if stuck after 3+ attempts
+
+**When Tests Fail:**
+1. Read test output
+2. Identify failing test cases
+3. Fix the underlying issue (not the test)
+4. Run tests again
+5. Ask user if test logic itself is unclear
+
+**When Conflicts Arise:**
+1. Stop immediately
+2. Notify user about the conflict
+3. Let user resolve it (don't attempt auto-resolution)
+4. Wait for user guidance before continuing
+
+### Code Quality Checklist
+
+Before indicating task completion, AI agents must verify:
+
+**Frontend:**
+- [ ] TypeScript compiles without errors (`npm run typecheck`)
+- [ ] Build succeeds (`npm run build`)
+- [ ] No `any` types used (unless absolutely necessary)
+- [ ] Proper error handling implemented
+- [ ] Components follow existing patterns
+- [ ] Path aliases used (`@/` instead of relative paths)
+
+**Backend:**
+- [ ] Python syntax is valid
+- [ ] No obvious runtime errors
+- [ ] Type hints included
+- [ ] Proper error handling with appropriate HTTP status codes
+- [ ] Follows repository pattern
+
+**Both:**
+- [ ] Follows project conventions (see ARCHITECTURE.md)
+- [ ] No secrets or credentials in code
+- [ ] Documentation updated if needed
+- [ ] Self-review completed
+
+### File Operations
+
+**Creating New Files:**
+- Always check if similar files exist (follow existing patterns)
+- Use correct file naming conventions
+- Place in appropriate directories
+- Update barrel exports if applicable
+
+**Modifying Existing Files:**
+- Read file first to understand current implementation
+- Preserve existing functionality unless instructed otherwise
+- Follow existing code style (don't mix patterns)
+- Check for dependencies on the code being modified
+
+**Deleting Files:**
+- Always ask before deleting
+- Check for references/imports in other files
+- Update imports in dependent files
+
+### Testing Strategy
+
+**Manual Testing:**
+- Describe what was tested
+- Include edge cases considered
+- Note any manual verification steps
+
+**Automated Testing:**
+- Add tests for new features when test framework is configured
+- Ensure existing tests still pass
+- Don't remove tests without explicit permission
+
+### Summary Protocol
+
+When completing a task, AI agents must provide:
+
+1. **Files Changed:** List of created/modified files
+2. **What Was Done:** Brief summary of changes
+3. **Testing Performed:** How it was verified
+4. **Next Steps:** Any follow-up work needed
+5. **Known Issues:** Any caveats or limitations
+
+**Example:**
+```
+✅ Task Complete: Landing Page Implementation
+
+Files Created:
+- src/pages/LandingPage.tsx
+- src/routes/landing.tsx
+- src/routes/home.tsx
+
+Files Modified:
+- src/routes/index.tsx
+
+What Was Done:
+Created public landing page at `/` with hero section and CTAs.
+Moved dashboard to `/home`. Updated auth flow.
+
+Testing:
+- Build passes: npm run build ✓
+- Type check passes: npm run typecheck ✓
+- Verified routes work correctly
+
+Next Steps:
+- Install framer-motion for animations (optional)
+- Add bottom navigation component
+
+Known Issues:
+- None
+```
