@@ -1,6 +1,9 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Optional
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -26,6 +29,7 @@ class Settings(BaseSettings):
     # APIs
     GOOGLE_API_KEY: str
     BRAVE_API_KEY: str
+    GEOAPIFY_API_KEY: str = os.getenv("GEOAPIFY_API_KEY", "")  # Default to provided key if not set
 
     # Cache
     REDIS_URL: str
