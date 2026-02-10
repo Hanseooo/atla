@@ -37,14 +37,14 @@ Complete setup instructions for the Philippine AI Travel Planning application.
 ### 1. Clone the Project
 
 ```bash
-cd your-projects-directory
-# Extract the philippine-travel-app folder from the downloaded files
+git clone <repo-url>
+cd ph-travel-app
 ```
 
 ### 2. Backend Setup
 
 ```bash
-cd philippine-travel-app/backend
+cd backend
 
 # Create Python virtual environment
 python -m venv venv
@@ -71,13 +71,17 @@ Edit `backend/.env` with your credentials:
 ENVIRONMENT=development
 SECRET_KEY=your-random-secret-key-here-change-in-production
 
-# Database (from Supabase)
-DATABASE_URL=postgresql+asyncpg://postgres:[YOUR-PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
+# Development Database (Local PostgreSQL)
+DEV_DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/atla_db
+
+# Production Database (Supabase)
+PROD_DATABASE_URL=postgresql+asyncpg://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
 
 # Supabase Auth
 SUPABASE_URL=https://[PROJECT-REF].supabase.co
 SUPABASE_ANON_KEY=eyJ[YOUR-ANON-KEY]
 SUPABASE_SERVICE_ROLE_KEY=eyJ[YOUR-SERVICE-KEY]
+SUPABASE_JWT_SECRET=your-jwt-secret
 
 # Google Gemini
 GOOGLE_API_KEY=AIza[YOUR-API-KEY]
@@ -94,35 +98,23 @@ ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
 
 #### Setup Database
 
-**Option A: Using Alembic (Recommended)**
+Alembic is already initialized. Just run the migrations:
 
 ```bash
-# Initialize Alembic
-alembic init alembic
-
-# Create initial migration
-alembic revision --autogenerate -m "Initial schema"
-
-# Run migrations
+# Apply all migrations
 alembic upgrade head
 ```
 
-**Option B: Direct Table Creation**
-
-In `backend/app/main.py`, uncomment:
-```python
-# await init_db()  # Uncomment this line
-```
-
-Then run:
+If you make changes to models, create a new migration:
 ```bash
-uvicorn app.main:app --reload
+alembic revision --autogenerate -m "Description of changes"
+alembic upgrade head
 ```
 
 ### 3. Frontend Setup
 
 ```bash
-cd ../frontend
+cd ../frontend/atla
 
 # Install dependencies
 npm install
@@ -133,7 +125,7 @@ cp .env.example .env
 
 #### Configure Frontend Environment
 
-Edit `frontend/.env`:
+Edit `frontend/atla/.env`:
 
 ```bash
 VITE_API_URL=http://localhost:8000
@@ -167,7 +159,7 @@ uvicorn app.main:app --reload
 In a **new terminal**:
 
 ```bash
-cd frontend
+cd frontend/atla
 
 # Start Vite dev server
 npm run dev
@@ -454,7 +446,7 @@ npm run preview
 **Solution:** Make sure you're in the `backend/` directory and virtual environment is activated
 
 **Problem:** Database connection errors
-**Solution:** Check your `DATABASE_URL` format in `.env`. It should be:
+**Solution:** Check your `DEV_DATABASE_URL` or `PROD_DATABASE_URL` format in `.env`. It should be:
 ```
 postgresql+asyncpg://user:password@host:port/database
 ```
