@@ -1,9 +1,11 @@
 ---
 name: Feature Request
-description: Suggest a new feature or enhancement for the project
-title: '[Feature]: '
-labels: ['enhancement', 'triage']
-assignees: []
+about: A structured template for proposing new features, defining user needs, acceptance
+  criteria, technical requirements, and a clear definition of done.
+title: "[Feature]: "
+labels: enhancement
+assignees: ''
+
 ---
 
 ## Feature Summary

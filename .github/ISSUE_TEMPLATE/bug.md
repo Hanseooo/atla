@@ -1,9 +1,11 @@
 ---
 name: Bug Report
-description: Report a bug or unexpected behavior
-title: '[Bug]: '
-labels: ['bug', 'triage']
-assignees: []
+about: A structured template for reporting bugs with clear steps, expected vs actual
+  behavior, logs, and environment details to help diagnose and fix issues faster
+title: "[Bug]: "
+labels: bug
+assignees: ''
+
 ---
 
 ## Bug Description
