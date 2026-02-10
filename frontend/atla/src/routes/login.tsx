@@ -10,7 +10,7 @@ export const Route = createFileRoute('/login')({
 function LoginRoute() {
   const navigate = useNavigate()
   const search = useSearch({ from: '/login' })
-  const redirectTo = (search as any).redirect || '/'
+  const redirectTo = (search as any).redirect || '/home'
   
   return (
     <LoginPage 
