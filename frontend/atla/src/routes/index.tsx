@@ -1,12 +1,10 @@
+import LandingPage from '@/pages/LandingPage';
 import { createFileRoute } from '@tanstack/react-router'
-import { requireAuth } from '../lib/auth-guards'
-import { HomePage } from '../pages/HomePage'
 
 export const Route = createFileRoute('/')({
-  component: HomeRoute,
-  beforeLoad: requireAuth,
+  component: LandingRoute,
 });
 
-function HomeRoute() {
-  return <HomePage />
+function LandingRoute() {
+  return <LandingPage />
 }

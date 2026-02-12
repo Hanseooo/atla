@@ -12,7 +12,7 @@ function SignupRoute() {
   
   return (
     <SignupPage 
-      onSignup={() => navigate({ to: '/' })}
+      onSignup={() => navigate({ to: '/home' })}
     />
   )
 }
