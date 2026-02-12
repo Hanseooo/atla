@@ -27,9 +27,10 @@ class Settings(BaseSettings):
     SUPABASE_JWT_SECRET: Optional[str] = None  # Deprecated - no longer used but kept for .env compatibility
 
     # APIs
-    GOOGLE_API_KEY: str
-    BRAVE_API_KEY: str
-    GEOAPIFY_API_KEY: str = os.getenv("GEOAPIFY_API_KEY", "")  # Default to provided key if not set
+    GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
+    BRAVE_API_KEY: str = os.getenv("BRAVE_API_KEY", "")
+    GEOAPIFY_API_KEY: str = os.getenv("GEOAPIFY_API_KEY", "")
+    OPENWEATHER_API_KEY: str = os.getenv("OPENWEATHER_API_KEY", "")
 
     # Cache
     REDIS_URL: str
