@@ -1,9 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Optional
-import os
-from dotenv import load_dotenv
 
-load_dotenv()
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -27,10 +24,8 @@ class Settings(BaseSettings):
     SUPABASE_JWT_SECRET: Optional[str] = None  # Deprecated - no longer used but kept for .env compatibility
 
     # APIs
-    GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
-    BRAVE_API_KEY: str = os.getenv("BRAVE_API_KEY", "")
-    GEOAPIFY_API_KEY: str = os.getenv("GEOAPIFY_API_KEY", "")
-    OPENWEATHER_API_KEY: str = os.getenv("OPENWEATHER_API_KEY", "")
+    GOOGLE_API_KEY: str
+    BRAVE_API_KEY: str
 
     # Cache
     REDIS_URL: str
