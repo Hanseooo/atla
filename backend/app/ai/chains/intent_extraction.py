@@ -25,9 +25,6 @@ from app.ai.prompts.intent_extraction import (
 
 logger = logging.getLogger(__name__)
 
-CONFIDENCE_THRESHOLD = 0.7
-
-
 async def extract_intent(
     message: str,
     user_context: Optional[dict] = None,
