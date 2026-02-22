@@ -1,3 +1,1 @@
-"""
-Docstring for backend.app.ai.models.llms
-"""
+"""LLM model factories and configurations for AI chains."""
