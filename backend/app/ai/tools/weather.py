@@ -101,12 +101,14 @@ async def get_weather(
             except ValueError:
                 return f"[ERROR] Invalid date format. Use YYYY-MM-DD (e.g., 2024-12-25)"
         
-        # Calculate if date is within 5 days
-        today = datetime.now()
+        # Calculate if date is within 5 days (use date-only for accurate comparison)
+        today = datetime.now().date()
         use_forecast = False
+        days_diff = 0  # Initialize for later use
         
         if target_date:
-            days_diff = (target_date - today).days
+            target_date_only = target_date.date() if isinstance(target_date, datetime) else target_date
+            days_diff = (target_date_only - today).days
             if 0 <= days_diff <= 5:
                 use_forecast = True
             elif days_diff < 0:
@@ -207,7 +209,7 @@ async def get_weather(
                     get_travel_recommendations(data),
                 ]
                 
-                if target_date and (target_date - today).days > 5:
+                if target_date and days_diff > 5:
                     lines.append("")
                     lines.append(f"[NOTE] Forecast only available up to 5 days. Showing current weather.")
                     lines.append(f"   For {date}, check closer to your travel date.")

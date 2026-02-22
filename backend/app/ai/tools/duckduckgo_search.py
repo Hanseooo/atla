@@ -1,6 +1,17 @@
 from langchain.tools import tool
 from ddgs import DDGS
 from typing import Optional
+import asyncio
+
+
+def _perform_search(query: str, region: str, max_results: int) -> list:
+    with DDGS() as ddgs:
+        return list(ddgs.text(
+            query,
+            region=region,
+            safesearch="moderate",
+            max_results=max_results,
+        ))
 
 
 @tool
@@ -24,14 +35,10 @@ async def duckduckgo_search(
         # Limit max results
         max_results = min(max_results, 10)
 
-        # Perform search using DuckDuckGo
-        with DDGS() as ddgs:
-            results = list(ddgs.text(
-                query,
-                region=region,
-                safesearch="moderate",
-                max_results=max_results,
-            ))
+        # Perform search using asyncio.to_thread to avoid blocking the event loop
+        results = await asyncio.to_thread(
+            _perform_search, query, region, max_results
+        )
 
         if not results:
             return f"[ERROR] No results found for: '{query}'"

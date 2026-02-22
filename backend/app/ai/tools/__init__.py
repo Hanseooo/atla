@@ -1,12 +1,14 @@
 """AI Tools module for travel planning."""
 
+from typing import List, Callable
+
 from .duckduckgo_search import duckduckgo_search
 from .geocode import geocode
 from .search_places import search_places
 from .weather import get_weather
 
 # Export all available tools
-ALL_TOOLS = [
+ALL_TOOLS: List[Callable] = [
     duckduckgo_search,
     geocode,
     search_places,
@@ -14,7 +16,7 @@ ALL_TOOLS = [
 ]
 
 
-def get_tools():
+def get_tools() -> List[Callable]:
     """Get all available AI tools."""
     return ALL_TOOLS
 
