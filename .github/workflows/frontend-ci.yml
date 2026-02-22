@@ -63,6 +63,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
+      - name: Generate route tree
+        run: npm run generate:routes
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+      
       - name: Run TypeScript type check
         run: npm run typecheck
 

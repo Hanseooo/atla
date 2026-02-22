@@ -1,18 +1,40 @@
 """
-AI agent module for travel planning.
+AI module for travel planning.
 
-This package contains the core AI components used to power travel planning
-features, including:
-
-- Large language model (LLM) interfaces and configuration.
-- Tooling and utilities for querying external travel services (e.g., flights,
-  hotels, and activities).
-- Orchestration logic (chains/agents) for intent extraction, constraint
-  handling, and itinerary generation.
-- Shared schemas and data models used to represent user intents, search
-  parameters, and structured travel itineraries.
-
-Modules within ``backend.app.ai`` are intended to be composed by higher-level
-API endpoints to transform natural language travel requests into actionable,
-structured responses.
+This module contains:
+- schemas: Data models for intent extraction and clarification
+- prompts: Prompt templates for LLM chains
+- chains: LLM chain implementations
+- tools: External API integrations (search, weather, geocode, places)
+- models: LLM factory and model configurations
 """
+
+from app.ai.schemas import (
+    TravelIntent,
+    ExtraNotes,
+    ClarificationQuestion,
+    ClarificationResponse,
+    QuestionOption,
+)
+from app.ai.chains import (
+    extract_intent,
+    generate_clarification_questions,
+    update_intent_from_answers,
+)
+from app.ai.tools import get_tools, ALL_TOOLS
+
+__all__ = [
+    # Schemas
+    "TravelIntent",
+    "ExtraNotes",
+    "ClarificationQuestion",
+    "ClarificationResponse",
+    "QuestionOption",
+    # Chains
+    "extract_intent",
+    "generate_clarification_questions",
+    "update_intent_from_answers",
+    # Tools
+    "get_tools",
+    "ALL_TOOLS",
+]
