@@ -31,24 +31,22 @@ User Message
     ↓
 ChatService (Orchestrator)
     ↓
-Load Session (Redis)
-    ↓
 Intent Extraction Chain
     ├─ Complete? → Itinerary Generation Chain → Save to DB
-    └─ Incomplete? → Generate Questions → Store in Redis
+    └─ Incomplete? → Generate Questions → Return Clarification
     ↓
 Return Response
-    ↓
-Schedule Redis Cleanup (2 min delay)
 ```
+
+> **Note:** Redis session management will be added in a future phase. Current MVP is stateless.
 
 ### Key Decisions
 
 1. **Pure LangChain**: Simpler implementation, easier debugging, faster MVP
-2. **Redis-only storage**: No DB persistence for chat history (conversations disposable)
-3. **TTL Strategy**: 10 minutes for active sessions, 2 minutes after completion
-4. **Predefined extra_notes**: Structured data for reliable personalization
-5. **No conditional questions**: Flat question list for MVP simplicity
+2. **Error handling (Approach A)**: Return empty intent on failure, trigger clarification flow
+3. **Predefined extra_notes**: Structured data for reliable personalization
+4. **No conditional questions**: Flat question list for MVP simplicity
+5. **DuckDuckGo for dev**: Using DDG search during development; Brave Search for production
 
 ---
 
@@ -109,7 +107,6 @@ class QuestionOption(BaseModel):
     id: str  # Machine-readable ID
     label: str  # Human-readable label
     description: Optional[str] = None  # Additional context
-    emoji: Optional[str] = None  # Visual indicator
 
 
 class ClarificationQuestion(BaseModel):
@@ -125,7 +122,6 @@ class ClarificationQuestion(BaseModel):
     
     # For text input
     placeholder: Optional[str] = None
-    validation_regex: Optional[str] = None  # For client-side validation
     
     # UI hints
     required: bool = True
@@ -136,10 +132,10 @@ class ClarificationResponse(BaseModel):
     """Response sent to frontend when clarification needed"""
     
     type: Literal["clarification"] = "clarification"
-    session_id: str
+    session_id: Optional[str] = None  # Set by ChatService when available
     questions: List[ClarificationQuestion]
     current_intent: TravelIntent  # Partial intent state
-    progress: dict  # { "completed": 3, "total": 7, "percentage": 42 }
+    progress: dict  # { "completed": 3, "total": 4, "percentage": 75 }
     message: str  # Friendly message like "I need a bit more info..."
 ```
 
@@ -175,19 +171,135 @@ class ErrorResponse(BaseModel):
 
 ## Implementation Phases
 
-### Phase 1: Foundation Tools (Issue #8) - Priority: Critical
+### Phase 1: Foundation Tools (Issue #8) - ✅ COMPLETE
 
 **Goal:** Create all tools needed by chains
 
-#### 1.1 Base Tool Class
+#### 1.1 Tool Implementations
+
+**DuckDuckGo Search Tool** (Development)
+```python
+# app/ai/tools/duckduckgo_search.py
+@tool
+async def duckduckgo_search(
+    query: str,
+    region: str = "ph-ph",
+    max_results: int = 5,
+) -> str:
+    """
+    Search for travel information using DuckDuckGo.
+    
+    Args:
+        query: Search query (e.g., "best beaches in Cebu")
+        region: Region code for localized results (default: "ph-ph" for Philippines)
+        max_results: Maximum number of results to return (default: 5, max: 10)
+    
+    Returns:
+        Markdown-formatted search results with titles, snippets, and URLs.
+    """
+    # Uses ddgs library wrapped in asyncio.to_thread()
+```
+
+> **Note:** DuckDuckGo is used during development. Brave Search (`brave_web_search.py` placeholder) will be used in production.
+
+**Weather Tool**
+```python
+# app/ai/tools/weather.py
+@tool
+async def get_weather(
+    location: str,
+    date: Optional[str] = None,
+    units: str = "metric",
+) -> str:
+    """
+    Get weather forecast for a location using OpenWeather API.
+    
+    Only provides forecast data if the requested date is within 5 days from now.
+    For dates beyond 5 days, returns current weather only.
+
+    Args:
+        location: City name (e.g., "Cebu", "Manila", "Boracay")
+        date: Target date in YYYY-MM-DD format (optional)
+        units: Temperature units - "metric" (Celsius) or "imperial" (Fahrenheit)
+
+    Returns:
+        Weather summary with temperature, conditions, and travel recommendations.
+    """
+    # OpenWeather API integration with date-only comparison for accuracy
+```
+
+**Places Search Tool**
+```python
+# app/ai/tools/search_places.py
+@tool
+async def search_places(
+    latitude: float,
+    longitude: float,
+    radius: int = 5000,
+    categories: str = "catering,tourism,entertainment",
+    limit: int = 20,
+) -> str:
+    """
+    Search for places near a location using Geoapify Places API.
+
+    Args:
+        latitude: Latitude of search center
+        longitude: Longitude of search center
+        radius: Search radius in meters (default: 5000 = 5km)
+        categories: Comma-separated categories
+        limit: Maximum number of results (default: 20, max: 100)
+
+    Returns:
+        Formatted markdown with places grouped by category.
+    """
+    # Geoapify Places API with rich formatting
+```
+
+**Geocode Tool**
+```python
+# app/ai/tools/geocode.py
+@tool
+async def geocode(query: str) -> str:
+    """
+    Geocode a location to get its latitude and longitude.
+
+    Args:
+        query: Location to geocode (e.g., "Manila", "Rizal Park")
+
+    Returns:
+        Coordinates in "latitude,longitude" format, or error message.
+    """
+    # Geoapify Geocoding API
+```
+
+#### 1.2 Tool Registry
 
 ```python
-# app/ai/tools/base.py
-from abc import ABC, abstractmethod
-from typing import Any
-import httpx
-from tenacity import retry, stop_after_attempt, wait_exponential
+# app/ai/tools/__init__.py
+from typing import List, Callable
 
+from .duckduckgo_search import duckduckgo_search
+from .geocode import geocode
+from .search_places import search_places
+from .weather import get_weather
+
+ALL_TOOLS: List[Callable] = [
+    duckduckgo_search,
+    geocode,
+    search_places,
+    get_weather,
+]
+
+def get_tools() -> List[Callable]:
+    """Get all available AI tools."""
+    return ALL_TOOLS
+```
+
+#### 1.3 Future Enhancements
+
+**Base Tool Class with Error Handling** (Not yet implemented)
+```python
+# app/ai/tools/base.py - Future Enhancement
 class BaseTool(ABC):
     """Base class for all AI tools with error handling"""
     
@@ -203,159 +315,33 @@ class BaseTool(ABC):
     )
     async def execute(self, **kwargs) -> Any:
         """Execute tool with retry logic"""
-        try:
-            return await self._execute(**kwargs)
-        except httpx.TimeoutException:
-            return {"error": "timeout", "message": "Request timed out. Please try again."}
-        except Exception as e:
-            return {"error": "execution_failed", "message": str(e)}
-    
-    @abstractmethod
-    async def _execute(self, **kwargs) -> Any:
-        """Actual tool implementation"""
         pass
 ```
 
-#### 1.2 Tool Implementations
-
-**Search Tool (Brave)**
+**Centralized Error Handler** (Not yet implemented)
 ```python
-# app/ai/tools/search.py
-@tool
-async def brave_search(query: str, location: Optional[str] = None) -> str:
-    """
-    Search for travel information using Brave Search.
-    
-    Args:
-        query: Search query (e.g., "best beaches in Cebu")
-        location: Optional location context
-    
-    Returns:
-        Markdown-formatted search results
-    """
-    # Implementation with caching
-```
-
-**Places DB Tool**
-```python
-# app/ai/tools/places_db.py
-@tool
-async def query_places(
-    destination: str,
-    category: Optional[str] = None,
-    rating_min: float = 4.0,
-    limit: int = 10
-) -> str:
-    """
-    Query local places database.
-    
-    Args:
-        destination: City or region name
-        category: Filter by category (restaurant, attraction, hotel)
-        rating_min: Minimum rating (1-5)
-        limit: Max results
-    
-    Returns:
-        Formatted list of places
-    """
-    # Uses PlaceRepository
-```
-
-**Weather Tool**
-```python
-# app/ai/tools/weather.py
-@tool
-async def get_weather(
-    location: str,
-    date: Optional[str] = None
-) -> str:
-    """
-    Get weather forecast for location.
-    
-    Args:
-        location: City name
-        date: Optional specific date (YYYY-MM-DD)
-    
-    Returns:
-        Weather summary and recommendations
-    """
-    # OpenWeather API integration
-```
-
-**Geocode Tool** (Already exists, enhance)
-```python
-# Enhance existing app/ai/tools/geocode.py
-# Add caching with Redis
-```
-
-#### 1.3 Tool Registry
-
-```python
-# app/ai/tools/__init__.py
-from .search import brave_search
-from .places_db import query_places
-from .weather import get_weather
-from .geocode import geocode
-
-# Export all tools
-ALL_TOOLS = [
-    brave_search,
-    query_places,
-    get_weather,
-    get_attractions,
-    geocode,
-]
-
-def get_tools() -> List[Callable]:
-    """Get all available tools"""
-    return ALL_TOOLS
-```
-
-#### 1.4 Error Handling Strategy
-
-```python
-# app/ai/tools/error_handler.py
+# app/ai/tools/error_handler.py - Future Enhancement
 class ToolErrorHandler:
     """Centralized error handling for tools"""
     
     @staticmethod
     def handle_error(tool_name: str, error: Exception) -> dict:
         """Convert exception to user-friendly response"""
-        
-        error_map = {
-            httpx.TimeoutException: {
-                "error": "timeout",
-                "message": f"{tool_name} is taking too long. Using cached data instead."
-            },
-            httpx.HTTPStatusError: {
-                "error": "api_error",
-                "message": f"Unable to fetch fresh data from {tool_name}. Using fallback information."
-            },
-            Exception: {
-                "error": "unknown",
-                "message": f"Something went wrong with {tool_name}. Continuing with available data."
-            }
-        }
-        
-        error_type = type(error)
-        response = error_map.get(error_type, error_map[Exception])
-        
-        # Log actual error for debugging
-        logger.error(f"Tool {tool_name} failed: {error}", exc_info=True)
-        
-        return response
+        pass
 ```
 
 **Success Criteria:**
-- [ ] All 5 tools implemented with `@tool` decorator
-- [ ] Retry logic with exponential backoff
-- [ ] Caching layer (Redis) for expensive calls
-- [ ] Graceful degradation (return partial data on failure)
-- [ ] Unit tests for each tool (mock external APIs)
+- [x] 4 tools implemented with `@tool` decorator
+- [x] Async/await throughout
+- [x] Graceful error handling (return error strings on failure)
+- [x] Type annotations for tool registry
+- [ ] Retry logic with exponential backoff (Future Enhancement)
+- [ ] Caching layer (Future Enhancement)
+- [ ] Unit tests for each tool
 
 ---
 
-### Phase 2: Intent Extraction (Issue #5) - Priority: Critical
+### Phase 2: Intent Extraction (Issue #5) - ✅ COMPLETE
 
 **Goal:** Extract structured intent from natural language
 
@@ -363,202 +349,171 @@ class ToolErrorHandler:
 
 ```python
 # app/ai/prompts/intent_extraction.py
-INTENT_EXTRACTION_PROMPT = """
-You are an expert travel planning assistant for the Philippines. Your job is to extract travel preferences from user messages.
+INTENT_EXTRACTION_PROMPT = """You are an expert travel planning assistant for the Philippines...
 
-Extract the following information from the user's message:
-
-REQUIRED FIELDS:
-- destination: Where they want to go (must be a location in the Philippines)
-- days: Number of days for the trip (integer between 1-30)
-- budget: Their budget level ("low", "mid", or "luxury")
-- companions: Who they're traveling with ("solo", "couple", "family", or "group")
-
-OPTIONAL FIELDS:
-- travel_style: List of activity preferences ["adventure", "relaxation", "culture", "food", "beach", "nature", "nightlife"]
-- time_of_year: When they plan to travel (e.g., "December 2024", "next month", "summer")
-
-EXTRA NOTES (extract personalization details):
-- dietary_restrictions: Any food restrictions mentioned
-- accessibility_needs: Mobility or accessibility requirements
-- must_visit: Specific places they mentioned wanting to see
-- avoid: Things they want to avoid
-- interests: Hobbies or interests mentioned
-- special_occasion: If this is for a special event
-- preferred_pace: How busy they want the trip ("relaxed", "moderate", "packed")
-- accommodation_type: Hotel preference
-- budget_flexibility: "strict" or "flexible"
-- transport_preference: "public", "private", or "rental"
-
-USER MESSAGE: {message}
-
-CURRENT CONTEXT: {context}
-
-Respond ONLY with a valid JSON object in this exact format:
-{{
-    "destination": "Cebu",
-    "days": 5,
-    "budget": "mid",
-    "companions": "couple",
-    "travel_style": ["beach", "food", "relaxation"],
-    "time_of_year": "December 2024",
-    "extra_notes": {{
-        "dietary_restrictions": "vegetarian",
-        "must_visit": ["Kawasan Falls"],
-        "interests": ["photography", "local food"]
-    }},
-    "confidence": 0.85
-}}
-
-Rules:
-1. If information is missing, use null (not empty string)
-2. For arrays, use empty array [] if none specified
-3. Confidence score (0.0-1.0) based on how clear the message was
-4. Destination MUST be in the Philippines - if unclear, set to null
-5. Days must be integer between 1-30
-6. Budget must be exactly "low", "mid", or "luxury"
-7. Companions must be exactly "solo", "couple", "family", or "group"
+{format_instructions}
 """
+
+QUESTION_TEMPLATES = {
+    "destination": {
+        "question": "Where in the Philippines would you like to visit?",
+        "type": "text",
+        "placeholder": "e.g., Cebu, Boracay, Palawan, Baguio",
+    },
+    "days": {
+        "question": "How many days is your trip?",
+        "type": "single_choice",
+        "options": [
+            {"id": "3", "label": "Weekend trip (2-3 days)"},
+            {"id": "5", "label": "Short getaway (4-5 days)"},
+            # ...
+        ],
+    },
+    # ... more templates
+}
+
+PROGRESS_MESSAGES = {
+    0: "I'd love to help you plan your trip! Let me get some details first.",
+    1: "Great start! Just a few more questions...",
+    2: "Almost there! One more thing...",
+    3: "Perfect! Let me put together your itinerary...",
+}
 ```
 
 #### 2.2 Chain Implementation
 
 ```python
 # app/ai/chains/intent_extraction.py
-from langchain import LLMChain, PromptTemplate
-from langchain.output_parsers import PydanticOutputParser
-from app.ai.models.llms.gemini import LLMFactory
-from app.models.schemas import TravelIntent
+from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.prompts import PromptTemplate
 
-class IntentExtractionError(Exception):
-    """Custom exception for intent extraction failures"""
-    pass
+from app.ai.models.llms.gemini import LLMFactory
+from app.ai.schemas.intent import TravelIntent
+
+CONFIDENCE_THRESHOLD = 0.7
+
 
 async def extract_intent(
     message: str,
-    user_context: Optional[dict] = None
+    user_context: Optional[dict] = None,
 ) -> TravelIntent:
     """
     Extract travel intent from user message.
-    
+
     Args:
         message: User's natural language message
         user_context: Optional user preferences from database
-    
+
     Returns:
-        TravelIntent object with extracted data
-    
-    Raises:
-        IntentExtractionError: If extraction fails after retries
+        TravelIntent object with extracted data.
+        Returns empty intent with confidence=0.0 on failure.
     """
     try:
-        # Initialize LLM
         llm = LLMFactory.create_llm(
             model_name="gemini-2.5-flash-lite",
-            temp=0.1  # Low temperature for consistent extraction
+            temp=0.1,
         )
-        
-        # Create parser
+
         parser = PydanticOutputParser(pydantic_object=TravelIntent)
-        
-        # Format prompt
+
         prompt = PromptTemplate(
             template=INTENT_EXTRACTION_PROMPT,
             input_variables=["message", "context"],
-            partial_variables={"format_instructions": parser.get_format_instructions()}
+            partial_variables={"format_instructions": parser.get_format_instructions()},
         )
-        
-        # Create chain
-        chain = LLMChain(llm=llm, prompt=prompt)
-        
-        # Execute
+
+        chain = prompt | llm
+
         context_str = json.dumps(user_context) if user_context else "No previous context"
+
         result = await chain.ainvoke({
             "message": message,
-            "context": context_str
+            "context": context_str,
         })
-        
-        # Parse output
-        try:
-            intent = parser.parse(result["text"])
-        except Exception as parse_error:
-            # Fallback: Try to extract JSON manually
-            intent = await _fallback_parse(result["text"])
-        
-        # Validate destination is in Philippines
-        if intent.destination:
-            intent.destination = await _validate_philippines_destination(intent.destination)
-        
-        # Calculate missing fields
+
+        result_text = result.content if hasattr(result, "content") else str(result)
+
+        intent = await _parse_intent(result_text, parser)
+
         intent.missing_info = intent.get_missing_fields()
-        
+
         return intent
-        
+
     except Exception as e:
         logger.error(f"Intent extraction failed: {e}", exc_info=True)
-        raise IntentExtractionError(f"Failed to understand your request: {str(e)}")
+        return TravelIntent(
+            missing_info=["destination", "days", "budget", "companions"],
+            confidence=0.0,
+        )
 
 
-async def _fallback_parse(text: str) -> TravelIntent:
-    """Fallback parser if Pydantic parsing fails"""
+async def _parse_intent(text: str, parser: PydanticOutputParser) -> TravelIntent:
+    """Parse LLM output into TravelIntent with fallback handling."""
+    
     try:
-        # Extract JSON from text
-        json_match = re.search(r'\{.*\}', text, re.DOTALL)
+        return parser.parse(text)
+    except Exception:
+        pass
+
+    # Fallback: Try to extract JSON manually
+    try:
+        json_match = re.search(r'\{[\s\S]*\}', text)
         if json_match:
             data = json.loads(json_match.group())
             return TravelIntent(**data)
     except Exception:
         pass
-    
-    # Return empty intent if all parsing fails
+
     return TravelIntent(
         missing_info=["destination", "days", "budget", "companions"],
-        confidence=0.0
+        confidence=0.0,
     )
 
 
-async def _validate_philippines_destination(destination: str) -> Optional[str]:
-    """Validate that destination is in Philippines"""
-    # Check against known Philippine destinations
-    # Could use geocode tool or database lookup
-    philippines_locations = [
-        "manila", "cebu", "boracay", "palawan", "baguio",
-        # ... full list
-    ]
-    
-    if destination.lower() in philippines_locations:
-        return destination.title()
-    
-    # Try geocoding
-    try:
-        coords = await geocode(destination + ", Philippines")
-        if coords and not coords.startswith("error"):
-            return destination.title()
-    except:
-        pass
-    
-    return None
+def generate_clarification_questions(
+    intent: TravelIntent,
+    max_questions: int = 3,
+) -> ClarificationResponse:
+    """Generate questions for missing required fields."""
+    # Implementation uses QUESTION_TEMPLATES
+    pass
+
+
+def update_intent_from_answers(
+    intent: TravelIntent,
+    answers: dict,
+) -> TravelIntent:
+    """Update intent based on user's clarification answers."""
+    # Implementation merges answers into existing intent
+    pass
 ```
 
+**Error Handling Approach (Approach A):**
+- Returns empty `TravelIntent` with `confidence=0.0` on any failure
+- ChatService checks `intent.confidence < 0.7` to prompt user to rephrase
+- Triggers clarification questions for missing fields
+
 **Success Criteria:**
-- [ ] Extracts all 4 required fields accurately
-- [ ] Parses extra_notes into structured dict
-- [ ] Handles unclear messages gracefully
-- [ ] Validates Philippine destinations
-- [ ] Returns confidence score
-- [ ] < 2 second response time
+- [x] Extracts all 4 required fields accurately
+- [x] Parses extra_notes into structured dict
+- [x] Handles unclear messages gracefully (returns empty intent)
+- [x] Returns confidence score
+- [x] < 2 second response time
+- [x] Generates clarification questions for missing fields
+- [x] Updates intent from user answers
 
 ---
 
-### Phase 3: Clarification Questions (Part of Issue #5)
+### Phase 3: Clarification Questions (Part of Issue #5) - ✅ COMPLETE
 
 **Goal:** Generate UI-friendly questions for missing info
 
-#### 3.1 Question Generation Logic
+> **Note:** Clarification logic is implemented in `app/ai/chains/intent_extraction.py` alongside intent extraction.
+
+#### 3.1 Question Templates
 
 ```python
-# app/ai/chains/clarification.py
-
+# app/ai/prompts/intent_extraction.py
 QUESTION_TEMPLATES = {
     "destination": {
         "question": "Where in the Philippines would you like to visit?",
@@ -569,43 +524,43 @@ QUESTION_TEMPLATES = {
         "question": "How many days is your trip?",
         "type": "single_choice",
         "options": [
-            {"id": "3", "label": "Weekend trip (2-3 days)", "emoji": "⚡"},
-            {"id": "5", "label": "Short getaway (4-5 days)", "emoji": "🌴"},
-            {"id": "7", "label": "Week-long vacation (6-7 days)", "emoji": "🏖️"},
-            {"id": "10", "label": "Extended trip (8-10 days)", "emoji": "🎒"},
-            {"id": "14", "label": "Two weeks+", "emoji": "✈️"}
+            {"id": "3", "label": "Weekend trip (2-3 days)"},
+            {"id": "5", "label": "Short getaway (4-5 days)"},
+            {"id": "7", "label": "Week-long vacation (6-7 days)"},
+            {"id": "10", "label": "Extended trip (8-10 days)"},
+            {"id": "14", "label": "Two weeks+"},
         ]
     },
     "budget": {
         "question": "What's your budget range?",
         "type": "single_choice",
         "options": [
-            {"id": "low", "label": "Budget-friendly", "description": "Under ₱5,000/day", "emoji": "💰"},
-            {"id": "mid", "label": "Moderate", "description": "₱5,000-15,000/day", "emoji": "💰💰"},
-            {"id": "luxury", "label": "Luxury", "description": "₱15,000+/day", "emoji": "💰💰💰"}
+            {"id": "low", "label": "Budget-friendly", "description": "Under P5,000/day"},
+            {"id": "mid", "label": "Moderate", "description": "P5,000-15,000/day"},
+            {"id": "luxury", "label": "Luxury", "description": "P15,000+/day"},
         ]
     },
     "companions": {
         "question": "Who are you traveling with?",
         "type": "single_choice",
         "options": [
-            {"id": "solo", "label": "Solo", "description": "Just me", "emoji": "🧍"},
-            {"id": "couple", "label": "Partner", "description": "With my significant other", "emoji": "💑"},
-            {"id": "family", "label": "Family", "description": "With kids/relatives", "emoji": "👨‍👩‍👧‍👦"},
-            {"id": "group", "label": "Group", "description": "Friends or tour group", "emoji": "👥"}
+            {"id": "solo", "label": "Solo", "description": "Just me"},
+            {"id": "couple", "label": "Partner", "description": "With my significant other"},
+            {"id": "family", "label": "Family", "description": "With kids/relatives"},
+            {"id": "group", "label": "Group", "description": "Friends or tour group"},
         ]
     },
     "travel_style": {
         "question": "What activities interest you? (Choose all that apply)",
         "type": "multiple_choice",
         "options": [
-            {"id": "beach", "label": "Beach & Water", "emoji": "🏖️"},
-            {"id": "adventure", "label": "Adventure", "emoji": "🏔️"},
-            {"id": "culture", "label": "Culture & History", "emoji": "🏛️"},
-            {"id": "food", "label": "Food & Dining", "emoji": "🍽️"},
-            {"id": "nature", "label": "Nature & Wildlife", "emoji": "🌿"},
-            {"id": "relaxation", "label": "Relaxation", "emoji": "🧘"},
-            {"id": "nightlife", "label": "Nightlife", "emoji": "🌃"}
+            {"id": "beach", "label": "Beach & Water"},
+            {"id": "adventure", "label": "Adventure"},
+            {"id": "culture", "label": "Culture & History"},
+            {"id": "food", "label": "Food & Dining"},
+            {"id": "nature", "label": "Nature & Wildlife"},
+            {"id": "relaxation", "label": "Relaxation"},
+            {"id": "nightlife", "label": "Nightlife"},
         ]
     },
     "time_of_year": {
@@ -616,9 +571,9 @@ QUESTION_TEMPLATES = {
 }
 
 
-async def generate_clarification_questions(
+def generate_clarification_questions(
     intent: TravelIntent,
-    max_questions: int = 3
+    max_questions: int = 3,
 ) -> ClarificationResponse:
     """
     Generate questions for missing required fields.
@@ -631,14 +586,12 @@ async def generate_clarification_questions(
         ClarificationResponse with questions and current state
     """
     missing = intent.get_missing_fields()
-    
-    # Prioritize questions (destination and days first)
+
     priority_order = ["destination", "days", "budget", "companions", "travel_style", "time_of_year"]
     missing.sort(key=lambda x: priority_order.index(x) if x in priority_order else 999)
-    
-    # Limit questions
+
     to_ask = missing[:max_questions]
-    
+
     questions = []
     for field in to_ask:
         template = QUESTION_TEMPLATES.get(field)
@@ -650,43 +603,30 @@ async def generate_clarification_questions(
                 question=template["question"],
                 options=[QuestionOption(**opt) for opt in template.get("options", [])],
                 placeholder=template.get("placeholder"),
-                priority=priority_order.index(field) + 1
+                priority=priority_order.index(field) + 1,
             ))
-    
-    # Calculate progress
-    total_required = 4  # destination, days, budget, companions
+
+    total_required = 4
     completed = total_required - len(missing)
-    
+
     return ClarificationResponse(
-        session_id="",  # Will be set by ChatService
+        session_id=None,
         questions=questions,
         current_intent=intent,
         progress={
             "completed": completed,
             "total": total_required,
-            "percentage": int((completed / total_required) * 100)
+            "percentage": int((completed / total_required) * 100),
         },
-        message=_generate_progress_message(completed, total_required)
+        message=PROGRESS_MESSAGES.get(completed, "Let's continue planning your adventure!"),
     )
-
-
-def _generate_progress_message(completed: int, total: int) -> str:
-    """Generate friendly progress message"""
-    messages = {
-        0: "I'd love to help you plan your trip! Let me get some details first.",
-        1: "Great start! Just a few more questions...",
-        2: "Almost there! One more thing...",
-        3: "Perfect! Let me put together your itinerary..."
-    }
-    return messages.get(completed, "Let's continue planning your adventure!")
 ```
 
 **Success Criteria:**
-- [ ] Generates max 3 questions at a time
-- [ ] Prioritizes required fields correctly
-- [ ] Returns proper UI types (choice vs text)
-- [ ] Includes emojis and descriptions
-- [ ] Calculates progress percentage
+- [x] Generates max 3 questions at a time
+- [x] Prioritizes required fields correctly
+- [x] Returns proper UI types (choice vs text)
+- [x] Calculates progress percentage
 
 ---
 
@@ -1245,27 +1185,78 @@ async def get_chat_history(
 
 ---
 
+## File Structure
+
+### Current Implementation
+
+```
+backend/app/ai/
+├── __init__.py                 # Exports schemas, chains, tools
+├── chains/
+│   ├── __init__.py
+│   └── intent_extraction.py    # extract_intent, generate_clarification_questions, update_intent_from_answers
+├── models/
+│   ├── __init__.py
+│   └── llms/
+│       ├── __init__.py
+│       └── gemini.py           # LLMFactory for Gemini models
+├── prompts/
+│   ├── __init__.py
+│   └── intent_extraction.py    # INTENT_EXTRACTION_PROMPT, QUESTION_TEMPLATES, PROGRESS_MESSAGES
+├── schemas/
+│   ├── __init__.py
+│   └── intent.py               # TravelIntent, ExtraNotes, ClarificationQuestion, ClarificationResponse
+└── tools/
+    ├── __init__.py             # get_tools(), ALL_TOOLS
+    ├── duckduckgo_search.py    # DuckDuckGo search (dev)
+    ├── brave_web_search.py     # Placeholder for production
+    ├── geocode.py              # Geoapify geocoding
+    ├── search_places.py        # Geoapify places search
+    └── weather.py              # OpenWeather API
+```
+
+### Future Files (Not Yet Implemented)
+
+```
+backend/app/ai/
+├── chains/
+│   ├── itinerary_generation.py # Issue #6
+│   └── followup_handler.py     # Issue #7
+├── prompts/
+│   └── itinerary_generation.py # Issue #6
+├── tools/
+│   ├── base.py                 # Future: BaseTool class with retry logic
+│   ├── error_handler.py        # Future: Centralized error handling
+│   └── circuit_breaker.py      # Future: Circuit breaker pattern
+
+backend/app/
+├── services/
+│   └── chat_service.py         # Issue #9
+└── api/
+    └── chat.py                 # Issue #9
+```
+
+---
+
 ## Edge Cases & Error Handling
 
 ### Error Handling Matrix
 
 | Scenario | Detection | Response | Recovery |
 |----------|-----------|----------|----------|
-| **LLM Timeout** | Try-except with timeout | Return "Still thinking..." status | Retry with simpler prompt |
-| **Invalid JSON** | Pydantic validation error | Use fallback parser | Return partial data |
-| **Tool Failure** | Exception in tool | Use cached/fallback data | Continue with warning |
-| **Rate Limited** | HTTP 429 | Return 429 with retry-after | Exponential backoff |
-| **Ambiguous Destination** | Low confidence score | Ask clarification | Provide suggestions |
-| **Session Expired** | Redis key not found | Create new session | Lose context gracefully |
-| **Concurrent Requests** | Lock on session_id | Queue or reject | Prevent race conditions |
-| **Database Failure** | Connection error | Queue for retry | Don't lose itinerary |
+| **LLM Timeout** | Try-except with timeout | Return empty intent (confidence=0.0) | User prompted to rephrase |
+| **Invalid JSON** | Pydantic validation error | Use fallback JSON parser | Return partial data or empty intent |
+| **Tool Failure** | Exception in tool | Return error string | Continue with available data |
+| **Rate Limited** | HTTP 429 | Return error message | User retries later |
+| **Ambiguous Destination** | Low confidence score | Ask clarification | Generate clarification questions |
+| **Database Failure** | Connection error | Log error, retry | Don't lose itinerary |
 | **Invalid User Input** | Validation error | Clear error message | Ask again |
-| **Not Philippines** | Geocode validation | "I only plan Philippines trips" | Suggest alternatives |
+| **API Key Invalid** | HTTP 401 | Return error message | Check environment config |
 
-### Circuit Breaker Pattern
+### Future Enhancement: Circuit Breaker Pattern
 
 ```python
-# app/ai/tools/circuit_breaker.py
+# app/ai/tools/circuit_breaker.py - Future Enhancement
 class CircuitBreaker:
     """Prevent cascading failures"""
     
@@ -1439,22 +1430,27 @@ async def test_full_conversation_flow():
 
 ### Pre-deployment
 
-- [ ] All environment variables configured
-- [ ] Redis instance accessible
+- [x] All environment variables configured
 - [ ] Database migrations applied
-- [ ] API keys validated (Gemini, Brave, Weather)
+- [x] API keys validated (Gemini, Geoapify, OpenWeather)
 - [ ] Rate limiting configured
 - [ ] Logging setup (structured JSON)
 - [ ] Health check endpoint added
-- [ ] Circuit breakers configured
+
+### Future Enhancements
+
+- [ ] Redis session management
+- [ ] Redis connection pooling
+- [ ] LLM response caching
+- [ ] Tool retry logic with exponential backoff
+- [ ] Circuit breaker pattern
+- [ ] Caching layer for expensive API calls
 
 ### Performance
 
-- [ ] Redis connection pooling
-- [ ] LLM response caching
-- [ ] Database query optimization
-- [ ] Async/await throughout
+- [x] Async/await throughout
 - [ ] Connection timeouts configured
+- [ ] Database query optimization
 
 ### Monitoring
 
@@ -1466,11 +1462,11 @@ async def test_full_conversation_flow():
 
 ### Security
 
-- [ ] Input validation
+- [x] Input validation (Pydantic)
 - [ ] Rate limiting per user
 - [ ] API key rotation
-- [ ] No secrets in logs
-- [ ] CORS configured
+- [x] No secrets in logs
+- [x] CORS configured
 
 ---
 
@@ -1494,9 +1490,11 @@ async def test_full_conversation_flow():
 ---
 
 **Next Steps:**
-1. Start with Issue #8 (Foundation Tools)
-2. Create GitHub issues for each sub-task
-3. Set up development environment
-4. Begin implementation with daily standups
+1. ~~Start with Issue #8 (Foundation Tools)~~ ✅ COMPLETE
+2. ~~Start with Issue #5 (Intent Extraction)~~ ✅ COMPLETE
+3. Implement Issue #6 (Itinerary Generation Chain)
+4. Implement Issue #7 (Follow-up Handler)
+5. Implement Issue #9 (Chat Service & API)
+6. Add Redis session management (Future Phase)
 
 **Questions or adjustments needed?**

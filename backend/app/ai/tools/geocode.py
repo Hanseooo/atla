@@ -31,9 +31,13 @@ async def geocode(query: str) -> str:
             response.raise_for_status()
             data = response.json()
 
-            if data.get("features"):
-                coords = data["features"][0]["geometry"]["coordinates"]
-                return f"{coords[1]},{coords[0]}"
+            results = data.get("results")
+            if results:
+                first = results[0]
+                lat = first.get("lat")
+                lon = first.get("lon")
+                if lat is not None and lon is not None:
+                    return f"{lat},{lon}"
             return "error: location not found"
 
         except httpx.HTTPError as e:
