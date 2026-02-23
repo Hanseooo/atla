@@ -22,8 +22,10 @@ from app.ai.chains.followup_handler import (
     _validate_days,
     _validate_budget,
     _validate_companions,
+    _validate_travel_style,
     _build_suggestion_query,
     _generate_static_suggestions,
+    VALID_TRAVEL_STYLES,
 )
 from app.ai.prompts.followup_handler import (
     STATIC_SUGGESTIONS,
@@ -90,6 +92,48 @@ class TestHelperFunctions:
         assert _validate_companions(None) is None
         assert _validate_companions("alone") is None
         assert _validate_companions("friends") is None
+
+    def test_validate_travel_style_valid_string(self):
+        assert _validate_travel_style("adventure") == ["adventure"]
+        assert _validate_travel_style("beach") == ["beach"]
+        assert _validate_travel_style("nightlife") == ["nightlife"]
+
+    def test_validate_travel_style_valid_list(self):
+        assert _validate_travel_style(["adventure", "beach"]) == ["adventure", "beach"]
+        assert _validate_travel_style(["culture", "food", "nature"]) == ["culture", "food", "nature"]
+
+    def test_validate_travel_style_invalid_string(self):
+        assert _validate_travel_style("skydiving") == []
+        assert _validate_travel_style("shopping") == []
+        assert _validate_travel_style("extreme_sports") == []
+
+    def test_validate_travel_style_none(self):
+        assert _validate_travel_style(None) == []
+
+    def test_validate_travel_style_list_with_invalid(self):
+        assert _validate_travel_style(["adventure", "skydiving"]) == ["adventure"]
+        assert _validate_travel_style(["invalid", "beach", "shopping"]) == ["beach"]
+
+    def test_validate_travel_style_list_with_none(self):
+        assert _validate_travel_style(["adventure", None]) == ["adventure"]
+        assert _validate_travel_style([None, "beach", None]) == ["beach"]
+
+    def test_validate_travel_style_empty_list(self):
+        assert _validate_travel_style([]) == []
+
+    def test_validate_travel_style_invalid_type(self):
+        assert _validate_travel_style(123) == []
+        assert _validate_travel_style({"style": "adventure"}) == []
+
+    def test_valid_travel_styles_constant(self):
+        assert "adventure" in VALID_TRAVEL_STYLES
+        assert "relaxation" in VALID_TRAVEL_STYLES
+        assert "culture" in VALID_TRAVEL_STYLES
+        assert "food" in VALID_TRAVEL_STYLES
+        assert "beach" in VALID_TRAVEL_STYLES
+        assert "nature" in VALID_TRAVEL_STYLES
+        assert "nightlife" in VALID_TRAVEL_STYLES
+        assert "skydiving" not in VALID_TRAVEL_STYLES
 
     def test_format_conversation_history_empty(self):
         result = _format_conversation_history([])
@@ -327,6 +371,127 @@ class TestApplyModification:
         )
         result = apply_modification(intent, modification)
         assert result.days is None
+
+    def test_change_travel_style_invalid_string(self):
+        intent = create_intent(
+            destination="Cebu", days=5, budget="mid", companions="couple", travel_style=["beach"]
+        )
+        modification = ModificationRequest(
+            action="change",
+            target="travel_style",
+            new_value="skydiving",
+            original_message="I want skydiving",
+            confidence=0.9,
+        )
+        result = apply_modification(intent, modification)
+        assert result.travel_style == ["beach"]
+
+    def test_change_travel_style_none_value(self):
+        intent = create_intent(
+            destination="Cebu", days=5, budget="mid", companions="couple", travel_style=["beach"]
+        )
+        modification = ModificationRequest(
+            action="change",
+            target="travel_style",
+            new_value=None,
+            original_message="Clear styles",
+            confidence=0.9,
+        )
+        result = apply_modification(intent, modification)
+        assert result.travel_style == ["beach"]
+
+    def test_change_travel_style_list_with_invalid(self):
+        intent = create_intent(
+            destination="Cebu", days=5, budget="mid", companions="couple", travel_style=["beach"]
+        )
+        modification = ModificationRequest(
+            action="change",
+            target="travel_style",
+            new_value=["adventure", "skydiving", "shopping"],
+            original_message="Change to adventure and skydiving",
+            confidence=0.9,
+        )
+        result = apply_modification(intent, modification)
+        assert result.travel_style == ["adventure"]
+        assert "skydiving" not in result.travel_style
+        assert "shopping" not in result.travel_style
+
+    def test_add_travel_style_invalid_string(self):
+        intent = create_intent(
+            destination="Cebu", days=5, budget="mid", companions="couple", travel_style=["beach"]
+        )
+        modification = ModificationRequest(
+            action="add",
+            target="travel_style",
+            new_value="extreme_sports",
+            original_message="Add extreme sports",
+            confidence=0.9,
+        )
+        result = apply_modification(intent, modification)
+        assert result.travel_style == ["beach"]
+
+    def test_add_travel_style_list_with_invalid(self):
+        intent = create_intent(
+            destination="Cebu", days=5, budget="mid", companions="couple", travel_style=["beach"]
+        )
+        modification = ModificationRequest(
+            action="add",
+            target="travel_style",
+            new_value=["adventure", "skydiving"],
+            original_message="Add adventure and skydiving",
+            confidence=0.9,
+        )
+        result = apply_modification(intent, modification)
+        assert "adventure" in result.travel_style
+        assert "beach" in result.travel_style
+        assert "skydiving" not in result.travel_style
+
+    def test_add_travel_style_none_value(self):
+        intent = create_intent(
+            destination="Cebu", days=5, budget="mid", companions="couple", travel_style=["beach"]
+        )
+        modification = ModificationRequest(
+            action="add",
+            target="travel_style",
+            new_value=None,
+            original_message="Add nothing",
+            confidence=0.9,
+        )
+        result = apply_modification(intent, modification)
+        assert result.travel_style == ["beach"]
+
+    def test_remove_travel_style_preserves_valid_on_invalid_input(self):
+        intent = create_intent(
+            destination="Cebu",
+            days=5,
+            budget="mid",
+            companions="couple",
+            travel_style=["beach", "adventure"],
+        )
+        modification = ModificationRequest(
+            action="remove",
+            target="travel_style",
+            new_value="skydiving",
+            original_message="Remove skydiving",
+            confidence=0.9,
+        )
+        result = apply_modification(intent, modification)
+        assert result.travel_style == ["beach", "adventure"]
+
+    def test_change_travel_style_single_string(self):
+        intent = create_intent(
+            destination="Cebu", days=5, budget="mid", companions="couple", travel_style=["beach"]
+        )
+        modification = ModificationRequest(
+            action="change",
+            target="travel_style",
+            new_value="adventure",
+            original_message="Change to adventure",
+            confidence=0.9,
+        )
+        result = apply_modification(intent, modification)
+        assert result.travel_style == ["adventure"]
+        assert "beach" not in result.travel_style
 
 
 class TestGenerateStaticSuggestions:

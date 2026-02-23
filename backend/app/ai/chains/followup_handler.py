@@ -10,7 +10,7 @@ from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import PromptTemplate
 
 from app.ai.models.llms.gemini import LLMFactory
-from app.ai.schemas.intent import TravelIntent, ClarificationQuestion
+from app.ai.schemas.intent import TravelIntent
 from app.ai.schemas.followup import (
     ModificationRequest,
     Suggestion,
@@ -171,18 +171,23 @@ def apply_modification(
 
     elif target == "travel_style":
         current_styles = update_data.get("travel_style", [])
+        validated_styles = _validate_travel_style(new_value)
+        
         if action == "add":
-            styles_to_add = new_value if isinstance(new_value, list) else [new_value]
-            update_data["travel_style"] = list(set(current_styles + styles_to_add))
+            if validated_styles:
+                update_data["travel_style"] = list(set(current_styles + validated_styles))
         elif action == "remove":
-            styles_to_remove = new_value if isinstance(new_value, list) else [new_value]
+            styles_to_remove = validated_styles if validated_styles else (
+                [new_value] if isinstance(new_value, str) else (
+                    new_value if isinstance(new_value, list) else []
+                )
+            )
             update_data["travel_style"] = [
                 s for s in current_styles if s not in styles_to_remove
             ]
         elif action == "change":
-            update_data["travel_style"] = (
-                new_value if isinstance(new_value, list) else [new_value]
-            )
+            if validated_styles:
+                update_data["travel_style"] = validated_styles
 
     updated_intent = TravelIntent(**update_data)
     updated_intent.missing_info = updated_intent.get_missing_fields()
@@ -261,7 +266,7 @@ def _generate_static_suggestions(
     styles = partial_intent.travel_style or []
     companions = partial_intent.companions
 
-    companion_filter = COMPANION_SUGGESTION_FILTERS.get(companions, {})
+    companion_filter = COMPANION_SUGGESTION_FILTERS.get(companions, {}) if companions else {}
     avoid_styles = companion_filter.get("avoid", [])
     prioritize_styles = companion_filter.get("prioritize", [])
 
@@ -659,3 +664,17 @@ def _validate_companions(value) -> Optional[str]:
     if isinstance(value, str) and value in ["solo", "couple", "family", "group"]:
         return value
     return None
+
+
+VALID_TRAVEL_STYLES = {"adventure", "relaxation", "culture", "food", "beach", "nature", "nightlife"}
+
+
+def _validate_travel_style(value) -> List[str]:
+    """Validate and filter travel_style values against valid options."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value] if value in VALID_TRAVEL_STYLES else []
+    if isinstance(value, list):
+        return [s for s in value if isinstance(s, str) and s in VALID_TRAVEL_STYLES]
+    return []

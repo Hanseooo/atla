@@ -982,6 +982,15 @@ async def handle_modification_request(
     pass
 ```
 
+**Success Criteria:**
+- [x] Classifies follow-up messages into 5 types (clarification, modification, new_intent, unsure, unknown)
+- [x] Detects modification requests with action type and target
+- [x] Applies modifications with validation (days, budget, companions, travel_style)
+- [x] Validates travel_style against allowed Literal values
+- [x] Generates destination suggestions using hybrid approach (DuckDuckGo + static fallback)
+- [x] Handles all edge cases gracefully (invalid values preserved)
+- [x] >80% test coverage
+
 ---
 
 ### Phase 6: Chat Service & API (Issue #9) - Priority: Critical
@@ -1194,7 +1203,8 @@ backend/app/ai/
 ├── __init__.py                 # Exports schemas, chains, tools
 ├── chains/
 │   ├── __init__.py
-│   └── intent_extraction.py    # extract_intent, generate_clarification_questions, update_intent_from_answers
+│   ├── intent_extraction.py    # extract_intent, generate_clarification_questions, update_intent_from_answers
+│   └── followup_handler.py     # detect_followup_type, detect_modification, apply_modification, generate_suggestions
 ├── models/
 │   ├── __init__.py
 │   └── llms/
@@ -1202,10 +1212,12 @@ backend/app/ai/
 │       └── gemini.py           # LLMFactory for Gemini models
 ├── prompts/
 │   ├── __init__.py
-│   └── intent_extraction.py    # INTENT_EXTRACTION_PROMPT, QUESTION_TEMPLATES, PROGRESS_MESSAGES
+│   ├── intent_extraction.py    # INTENT_EXTRACTION_PROMPT, QUESTION_TEMPLATES, PROGRESS_MESSAGES
+│   └── followup_handler.py     # FOLLOWUP_TYPE_DETECTION_PROMPT, MODIFICATION_DETECTION_PROMPT, STATIC_SUGGESTIONS
 ├── schemas/
 │   ├── __init__.py
-│   └── intent.py               # TravelIntent, ExtraNotes, ClarificationQuestion, ClarificationResponse
+│   ├── intent.py               # TravelIntent, ExtraNotes, ClarificationQuestion, ClarificationResponse
+│   └── followup.py             # ModificationRequest, Suggestion, FollowupType, FollowupResponse
 └── tools/
     ├── __init__.py             # get_tools(), ALL_TOOLS
     ├── duckduckgo_search.py    # DuckDuckGo search (dev)
@@ -1220,8 +1232,7 @@ backend/app/ai/
 ```
 backend/app/ai/
 ├── chains/
-│   ├── itinerary_generation.py # Issue #6
-│   └── followup_handler.py     # Issue #7
+│   └── itinerary_generation.py # Issue #6
 ├── prompts/
 │   └── itinerary_generation.py # Issue #6
 ├── tools/
@@ -1493,7 +1504,7 @@ async def test_full_conversation_flow():
 1. ~~Start with Issue #8 (Foundation Tools)~~ ✅ COMPLETE
 2. ~~Start with Issue #5 (Intent Extraction)~~ ✅ COMPLETE
 3. Implement Issue #6 (Itinerary Generation Chain)
-4. Implement Issue #7 (Follow-up Handler)
+4. ~~Implement Issue #7 (Follow-up Handler)~~ ✅ COMPLETE
 5. Implement Issue #9 (Chat Service & API)
 6. Add Redis session management (Future Phase)
 

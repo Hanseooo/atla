@@ -24,7 +24,9 @@ Respond with JSON only:
     "type": "<category>",
     "confidence": <0.0-1.0>,
     "reasoning": "<brief explanation>"
-}}"""
+}}
+
+{format_instructions}"""
 
 MODIFICATION_DETECTION_PROMPT = """You are a travel planning assistant. Extract the modification request from the user's message.
 
@@ -50,6 +52,8 @@ Respond with JSON only:
     "new_value": <new_value_or_null>,
     "confidence": <0.0-1.0>
 }}
+
+{format_instructions}
 
 Examples:
 - "Make it 5 days instead of 3" -> {{"action": "change", "target": "days", "new_value": 5, "confidence": 0.95}}
