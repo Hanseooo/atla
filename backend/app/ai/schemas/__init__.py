@@ -8,6 +8,12 @@ from .intent import (
     ClarificationResponse,
     IntentExtractionError,
 )
+from .followup import (
+    ModificationRequest,
+    Suggestion,
+    FollowupType,
+    FollowupResponse,
+)
 
 __all__ = [
     "ExtraNotes",
@@ -16,4 +22,8 @@ __all__ = [
     "ClarificationQuestion",
     "ClarificationResponse",
     "IntentExtractionError",
+    "ModificationRequest",
+    "Suggestion",
+    "FollowupType",
+    "FollowupResponse",
 ]
