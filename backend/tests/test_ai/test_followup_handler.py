@@ -268,7 +268,7 @@ class TestApplyModification:
         assert "beach" in result.travel_style
         assert "adventure" in result.travel_style
 
-    def test_invalid_budget_ignored(self):
+    def test_invalid_budget_preserved(self):
         intent = create_intent(destination="Cebu", days=5, budget="mid", companions="couple")
         modification = ModificationRequest(
             action="change",
@@ -278,15 +278,51 @@ class TestApplyModification:
             confidence=0.9,
         )
         result = apply_modification(intent, modification)
-        assert result.budget is None
+        assert result.budget == "mid"
 
-    def test_invalid_days_ignored(self):
+    def test_invalid_days_preserved(self):
         intent = create_intent(destination="Cebu", days=5, budget="mid", companions="couple")
         modification = ModificationRequest(
             action="change",
             target="days",
             new_value="invalid",
             original_message="Invalid days",
+            confidence=0.9,
+        )
+        result = apply_modification(intent, modification)
+        assert result.days == 5
+
+    def test_days_exceeds_max_constrained(self):
+        intent = create_intent(destination="Cebu", days=5, budget="mid", companions="couple")
+        modification = ModificationRequest(
+            action="change",
+            target="days",
+            new_value=50,
+            original_message="50 days",
+            confidence=0.9,
+        )
+        result = apply_modification(intent, modification)
+        assert result.days == 30
+
+    def test_invalid_companions_preserved(self):
+        intent = create_intent(destination="Cebu", days=5, budget="mid", companions="couple")
+        modification = ModificationRequest(
+            action="change",
+            target="companions",
+            new_value="alone",
+            original_message="Alone",
+            confidence=0.9,
+        )
+        result = apply_modification(intent, modification)
+        assert result.companions == "couple"
+
+    def test_extend_days_from_none_ignored(self):
+        intent = create_intent(destination="Cebu", budget="mid", companions="couple")
+        modification = ModificationRequest(
+            action="extend",
+            target="days",
+            new_value=2,
+            original_message="Add 2 days",
             confidence=0.9,
         )
         result = apply_modification(intent, modification)
@@ -323,6 +359,17 @@ class TestGenerateStaticSuggestions:
         intent = create_intent()
         suggestions = _generate_static_suggestions(intent, 5)
         assert isinstance(suggestions, list)
+
+    def test_suggestions_fallback_popular_destinations(self):
+        intent = create_intent(companions="family", travel_style=["nightlife"])
+        suggestions = _generate_static_suggestions(intent, 5)
+        assert len(suggestions) > 0
+        assert all(s.source == "static" for s in suggestions)
+        popular_destinations = ["Boracay", "Palawan", "Cebu", "Siargao", "Bohol"]
+        assert any(
+            any(pop in s.destination for pop in popular_destinations)
+            for s in suggestions
+        )
 
     def test_suggestions_max_limit(self):
         intent = create_intent(travel_style=["beach", "adventure", "culture"])

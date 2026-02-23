@@ -144,22 +144,30 @@ def apply_modification(
     new_value = modification.new_value
 
     if target == "destination":
-        update_data["destination"] = str(new_value) if new_value else None
+        if new_value:
+            update_data["destination"] = str(new_value)
 
     elif target == "days":
-        current_days = update_data.get("days") or 0
+        current_days = update_data.get("days")
+        validated_days = None
         if action == "change":
-            update_data["days"] = _validate_days(new_value)
-        elif action == "extend":
-            update_data["days"] = _validate_days(current_days + (new_value or 0))
-        elif action == "shorten":
-            update_data["days"] = _validate_days(current_days - (new_value or 0))
+            validated_days = _validate_days(new_value)
+        elif action == "extend" and current_days is not None:
+            validated_days = _validate_days(current_days + (new_value or 0))
+        elif action == "shorten" and current_days is not None:
+            validated_days = _validate_days(current_days - (new_value or 0))
+        if validated_days is not None:
+            update_data["days"] = validated_days
 
     elif target == "budget":
-        update_data["budget"] = _validate_budget(new_value)
+        validated_budget = _validate_budget(new_value)
+        if validated_budget is not None:
+            update_data["budget"] = validated_budget
 
     elif target == "companions":
-        update_data["companions"] = _validate_companions(new_value)
+        validated_companions = _validate_companions(new_value)
+        if validated_companions is not None:
+            update_data["companions"] = validated_companions
 
     elif target == "travel_style":
         current_styles = update_data.get("travel_style", [])
@@ -289,7 +297,47 @@ def _generate_static_suggestions(
         if len(suggestions) >= max_suggestions:
             break
 
+    if not suggestions:
+        return _get_popular_destinations(max_suggestions)
+
     return suggestions
+
+
+def _get_popular_destinations(max_suggestions: int) -> List[Suggestion]:
+    """Return popular destinations as fallback when no style matches."""
+    popular = [
+        Suggestion(
+            destination="Boracay",
+            reason="Most popular beach destination with white sand and vibrant nightlife.",
+            best_for=["beach", "nightlife", "relaxation"],
+            source="static",
+        ),
+        Suggestion(
+            destination="Palawan",
+            reason="Pristine nature, underground river, and stunning lagoons.",
+            best_for=["nature", "beach", "adventure"],
+            source="static",
+        ),
+        Suggestion(
+            destination="Cebu",
+            reason="Diverse activities from waterfalls to whale shark watching.",
+            best_for=["adventure", "nature", "culture"],
+            source="static",
+        ),
+        Suggestion(
+            destination="Siargao",
+            reason="Surfing capital with laid-back island vibe.",
+            best_for=["adventure", "beach", "relaxation"],
+            source="static",
+        ),
+        Suggestion(
+            destination="Bohol",
+            reason="Chocolate Hills, tarsiers, and heritage sites.",
+            best_for=["nature", "culture", "beach"],
+            source="static",
+        ),
+    ]
+    return popular[:max_suggestions]
 
 
 async def process_followup(
@@ -482,9 +530,7 @@ def _extract_content(result) -> str:
         if isinstance(content, str):
             return content
         elif isinstance(content, list):
-            return "".join(
-                str(item) if isinstance(item, str) else str(item) for item in content
-            )
+            return "".join(str(item) for item in content)
     return str(result)
 
 
@@ -587,7 +633,7 @@ def _build_suggestion_query(partial_intent: TravelIntent) -> str:
 
 
 def _validate_days(value) -> Optional[int]:
-    """Validate and constrain days value."""
+    """Validate and constrain days value to 1-30 range."""
     if value is None:
         return None
     try:
