@@ -464,14 +464,33 @@ async def _handle_modification(
         "shorten": "Shortened your trip.",
     }
 
+    current = current_intent.model_dump()
+    updated = updated_intent.model_dump()
+
+    for field in ["travel_style"]:
+        if current.get(field):
+            current[field] = sorted(current[field])
+        if updated.get(field):
+            updated[field] = sorted(updated[field])
+
+    intent_changed = current != updated
+
+    base_message = action_messages.get(
+        modification.action, f"Modified your {target_display}."
+    )
+
+    if intent_changed:
+        response_message = base_message + " Regenerating your itinerary..."
+        requires_regeneration = True
+    else:
+        response_message = base_message + " I couldn't apply that change to your trip."
+        requires_regeneration = False
+
     return FollowupResponse(
         type="modification_applied",
         updated_intent=updated_intent,
-        message=(
-            action_messages.get(modification.action, f"Modified your {target_display}.")
-            + " Regenerating your itinerary..."
-        ),
-        requires_regeneration=True,
+        message=response_message,
+        requires_regeneration=requires_regeneration,
     )
 
 

@@ -877,6 +877,93 @@ class TestProcessFollowup:
 
             assert result.type == "error"
 
+    @pytest.mark.asyncio
+    async def test_modification_no_change_invalid_budget(self):
+        mock_type_result = MagicMock()
+        mock_type_result.content = '{"type": "modification", "confidence": 0.9}'
+
+        mock_mod_result = MagicMock()
+        mock_mod_result.content = '{"action": "change", "target": "budget", "new_value": "premium", "confidence": 0.95}'
+
+        mock_chain = MagicMock()
+        mock_chain.ainvoke = AsyncMock(
+            side_effect=[mock_type_result, mock_mod_result]
+        )
+
+        with patch("app.ai.chains.followup_handler.LLMFactory.create_llm") as mock_factory, \
+             patch("app.ai.chains.followup_handler.PromptTemplate") as mock_prompt_cls:
+            mock_factory.return_value = MagicMock()
+            mock_prompt_instance = MagicMock()
+            mock_prompt_instance.__or__ = MagicMock(return_value=mock_chain)
+            mock_prompt_cls.return_value = mock_prompt_instance
+
+            intent = create_intent(destination="Cebu", days=5, budget="mid", companions="couple")
+            history = []
+
+            result = await process_followup("Change budget to premium", intent, history)
+
+            assert result.type == "modification_applied"
+            assert result.requires_regeneration is False
+            assert "couldn't apply" in result.message.lower()
+
+    @pytest.mark.asyncio
+    async def test_modification_no_change_invalid_days(self):
+        mock_type_result = MagicMock()
+        mock_type_result.content = '{"type": "modification", "confidence": 0.9}'
+
+        mock_mod_result = MagicMock()
+        mock_mod_result.content = '{"action": "change", "target": "days", "new_value": "invalid", "confidence": 0.95}'
+
+        mock_chain = MagicMock()
+        mock_chain.ainvoke = AsyncMock(
+            side_effect=[mock_type_result, mock_mod_result]
+        )
+
+        with patch("app.ai.chains.followup_handler.LLMFactory.create_llm") as mock_factory, \
+             patch("app.ai.chains.followup_handler.PromptTemplate") as mock_prompt_cls:
+            mock_factory.return_value = MagicMock()
+            mock_prompt_instance = MagicMock()
+            mock_prompt_instance.__or__ = MagicMock(return_value=mock_chain)
+            mock_prompt_cls.return_value = mock_prompt_instance
+
+            intent = create_intent(destination="Cebu", days=5, budget="mid", companions="couple")
+            history = []
+
+            result = await process_followup("Change days to invalid", intent, history)
+
+            assert result.type == "modification_applied"
+            assert result.requires_regeneration is False
+            assert "couldn't apply" in result.message.lower()
+
+    @pytest.mark.asyncio
+    async def test_modification_successful_change_requires_regeneration(self):
+        mock_type_result = MagicMock()
+        mock_type_result.content = '{"type": "modification", "confidence": 0.9}'
+
+        mock_mod_result = MagicMock()
+        mock_mod_result.content = '{"action": "change", "target": "days", "new_value": 7, "confidence": 0.95}'
+
+        mock_chain = MagicMock()
+        mock_chain.ainvoke = AsyncMock(
+            side_effect=[mock_type_result, mock_mod_result]
+        )
+
+        with patch("app.ai.chains.followup_handler.LLMFactory.create_llm") as mock_factory, \
+             patch("app.ai.chains.followup_handler.PromptTemplate") as mock_prompt_cls:
+            mock_factory.return_value = MagicMock()
+            mock_prompt_instance = MagicMock()
+            mock_prompt_instance.__or__ = MagicMock(return_value=mock_chain)
+            mock_prompt_cls.return_value = mock_prompt_instance
+
+            intent = create_intent(destination="Cebu", days=5, budget="mid", companions="couple")
+            history = []
+
+            result = await process_followup("Make it 7 days", intent, history)
+
+            assert result.type == "modification_applied"
+            assert result.requires_regeneration is True
+            assert "Regenerating" in result.message
+
 
 class TestSuggestionSchema:
     """Tests for Suggestion schema."""
