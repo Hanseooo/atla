@@ -40,21 +40,21 @@ ItineraryGenerationError: Could not parse JSON from LLM response
 
 ---
 
-### 3. Redis Connection Errors
+### 3. Session Storage Behavior
 
-#### Error: "Error 111 connecting to localhost:6379"
+#### Problem: Session not found after app restart
 
 **Symptoms:**
-```
-ConnectionError: Error 111 connecting to localhost:6379
-```
+- Existing `session_id` returns "Session not found"
 
-**Cause:** Redis not running
+**Cause:**
+- Session data is currently stored in-process memory only
+- Server restart clears memory
 
 **Solution:**
-1. Start Redis: `redis-server`
-2. Or use Docker: `docker run -d -p 6379:6379 redis`
-3. Update `REDIS_URL` in `.env` if using remote Redis
+1. Start a new chat session after restart
+2. Keep session_id in client between requests during the same process uptime
+3. Plan DB-backed session persistence for production
 
 ---
 
@@ -163,8 +163,8 @@ confidence=0.0
 - "No weather data available"
 
 **Cause:**
-- Open-Meteo API unavailable
-- Invalid coordinates
+- OpenWeather API unavailable
+- Invalid location input
 
 **Solution:**
 - System continues without weather
@@ -182,13 +182,13 @@ confidence=0.0
 - Progress not saved
 
 **Cause:**
-- Redis not connected
 - Session ID not being passed
+- Backend process restarted (in-memory session cleared)
 
 **Solution:**
-1. Verify Redis is running
-2. Check session_id is included in requests
-3. Verify Redis TTL not too short (default: 30 min)
+1. Check session_id is included in requests
+2. Ensure backend process has not restarted
+3. Recreate session if needed
 
 ---
 
@@ -199,12 +199,12 @@ confidence=0.0
 
 **Cause:**
 - Session ID collision
-- Redis not clearing old sessions
+- Reused session_id across users
 
 **Solution:**
 1. Generate new session ID for each user
-2. Clear Redis: `redis-cli FLUSHDB`
-3. Check session expiry settings
+2. Avoid sharing session IDs between users
+3. Add DB-backed session isolation as follow-up
 
 ---
 
@@ -260,17 +260,17 @@ print(result.model_dump())
 **Possible Causes:**
 1. LLM API latency
 2. Tool calls (geocoding, weather)
-3. Redis connection
+3. Session storage behavior (in-memory)
 
 **Solutions:**
 1. Check API key quota
 2. Increase timeout settings
-3. Use connection pooling for Redis
+3. Keep session payloads compact and bounded
 
 ### High Memory Usage
 
 **Possible Causes:**
-1. Large session history in Redis
+1. Large in-memory session history
 2. Many concurrent requests
 3. Large tool outputs
 
@@ -340,6 +340,6 @@ When reporting issues, include:
 |------|------|-------------|
 | EXTRACT_ERROR | Intent Extraction | Failed to parse user message |
 | GENERATE_ERROR | Itinerary Generation | Failed to create itinerary |
-| SESSION_ERROR | Session | Redis/session issue |
+| SESSION_ERROR | Session | Session storage/persistence issue |
 | VALIDATION_ERROR | Input | Invalid input data |
 | API_ERROR | External | API key or quota issue |
