@@ -12,6 +12,7 @@ from .followup_handler import (
     STATIC_SUGGESTIONS,
     COMPANION_SUGGESTION_FILTERS,
 )
+from .itinerary_generation import ITINERARY_GENERATION_PROMPT
 
 __all__ = [
     "INTENT_EXTRACTION_PROMPT",
@@ -22,4 +23,5 @@ __all__ = [
     "SUGGESTION_EXTRACTION_PROMPT",
     "STATIC_SUGGESTIONS",
     "COMPANION_SUGGESTION_FILTERS",
+    "ITINERARY_GENERATION_PROMPT",
 ]

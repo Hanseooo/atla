@@ -232,6 +232,7 @@ Response 3 ◀──┘
 1. Read [DATABASE.md](DATABASE.md) to understand our data models
 2. Read [PATTERNS.md](PATTERNS.md) for common code patterns
 3. Look at existing code in `app/models/` and `app/repositories/`
+4. For AI system details, see [AI_ARCHITECTURE.md](AI_ARCHITECTURE.md)
 
 ---
 

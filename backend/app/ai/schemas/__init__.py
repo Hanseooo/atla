@@ -14,6 +14,12 @@ from .followup import (
     FollowupType,
     FollowupResponse,
 )
+from .itinerary import (
+    ActivityData,
+    TripDayData,
+    ItineraryOutput,
+    ItineraryGenerationError,
+)
 
 __all__ = [
     "ExtraNotes",
@@ -26,4 +32,8 @@ __all__ = [
     "Suggestion",
     "FollowupType",
     "FollowupResponse",
+    "ActivityData",
+    "TripDayData",
+    "ItineraryOutput",
+    "ItineraryGenerationError",
 ]
