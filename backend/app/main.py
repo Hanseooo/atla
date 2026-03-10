@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.db.session import get_session
 from app.api import auth
+from app.api import chat
 
 app = FastAPI(
     title="Philippine Travel API",
@@ -24,6 +25,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth.router)
+app.include_router(chat.router)
 
 
 @app.get("/health")
