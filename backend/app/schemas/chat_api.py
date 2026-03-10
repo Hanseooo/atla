@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from typing import Optional, List, Literal, Any, Dict
 from datetime import datetime
 from app.ai.schemas.intent import TravelIntent, ClarificationResponse
-from app.ai.schemas.itinerary import ActivityData, TripDayData
+from app.ai.schemas.itinerary import TripDayData
 
 
 class ChatRequest(BaseModel):
@@ -45,7 +45,7 @@ class ErrorResponse(BaseModel):
 
 
 class ChatSession(BaseModel):
-    """Session state stored in Redis."""
+    """Session state for chat conversation context."""
 
     id: str
     user_id: Optional[str] = None

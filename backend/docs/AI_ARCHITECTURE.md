@@ -18,8 +18,9 @@ Atla uses AI to power an intelligent travel planning experience. The system extr
 ┌─────────────────────────────────────────────────────────────────┐
 │                      FASTAPI BACKEND                             │
 │  ┌─────────────────────────────────────────────────────────────┐│
-│  │                    CHAT API ENDPOINT                         ││
-│  │                  POST /api/chat                              ││
+│  │                    CHAT API ENDPOINTS                        ││
+│  │  POST /api/chat, /{session_id}/clarify,                     ││
+│  │  /{session_id}/generate-itinerary                            ││
 │  └─────────────────────────┬───────────────────────────────────┘│
 │                            │                                      │
 │                            ▼                                      │
@@ -125,7 +126,7 @@ User Message → Detect Type → Handle Response
 |------|---------|-----|
 | Geocode | Convert address to coordinates | Geoapify |
 | Search Places | Find attractions, restaurants | Geoapify |
-| Get Weather | Weather forecast | Open-Meteo |
+| Get Weather | Weather forecast | OpenWeather |
 | Web Search | Additional information | DuckDuckGo |
 
 ### Tool Configuration
@@ -134,9 +135,9 @@ User Message → Detect Type → Handle Response
 - Used for: Geocoding destinations, searching places
 - Categories: tourism, catering, accommodation, entertainment
 
-**Open-Meteo** (Weather)
-- Used for: Weather forecasts for destination
-- No API key required
+**OpenWeather** (Weather)
+- Used for: Current weather and 5-day forecasts
+- Requires `OPENWEATHER_API_KEY`
 
 **DuckDuckGo** (Web Search)
 - Used for: Fallback suggestions, additional info
@@ -150,11 +151,11 @@ User Message → Detect Type → Handle Response
 1. User sends message
         │
         ▼
-2. Check Redis for session
+2. Check in-memory session store
         │
         ├─→ New session: Create empty TravelIntent
         │
-        └─→ Existing session: Load TravelIntent from Redis
+        └─→ Existing session: Load TravelIntent from in-memory store
         │
         ▼
 3. Extract intent from message (Intent Extraction Chain)
@@ -184,7 +185,7 @@ User Message → Detect Type → Handle Response
 1. User sends follow-up message
         │
         ▼
-2. Load existing intent from Redis
+2. Load existing intent from in-memory store
         │
         ▼
 3. Detect message type (Follow-up Handler Chain)
@@ -205,7 +206,7 @@ User Message → Detect Type → Handle Response
         └─→ unknown: Return error
         │
         ▼
-4. Save updated session to Redis
+4. Save updated session in memory
         │
         ▼
 5. Return response
@@ -213,9 +214,9 @@ User Message → Detect Type → Handle Response
 
 ## Session Management
 
-**Storage:** Redis
-**Key Format:** `chat:session:{session_id}`
-**TTL:** 30 minutes of inactivity
+**Storage:** In-memory process store (`ChatService._sessions`)
+**Key Format:** Session UUID
+**TTL:** No TTL yet (manual cleanup strategy pending DB-backed sessions)
 
 **Session Data:**
 ```json
@@ -260,7 +261,7 @@ GOOGLE_API_KEY=your_gemini_api_key
 # Optional (for enhanced features)
 GEOAPIFY_API_KEY=your_geoapify_key
 BRAVE_API_KEY=your_brave_search_key
-REDIS_URL=redis://localhost:6379
+OPENWEATHER_API_KEY=your_openweather_key
 ```
 
 ### Model Configuration
@@ -290,12 +291,12 @@ REDIS_URL=redis://localhost:6379
 All external APIs are mocked in tests:
 - Gemini LLM: Mocked responses
 - Tools: Mocked tool outputs
-- Redis: In-memory mock
+- Session store: in-memory mock
 
 ## Performance Considerations
 
 1. **Concurrent Tool Calls:** Places and weather fetched in parallel
-2. **Caching:** Session data cached in Redis
+2. **Session Context:** Session data held in process memory
 3. **Timeout:** LLM calls have 30s timeout
 4. **Rate Limiting:** Consider adding for production
 

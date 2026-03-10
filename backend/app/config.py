@@ -10,6 +10,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        extra="ignore",
     )
 
     # Application
@@ -31,9 +32,6 @@ class Settings(BaseSettings):
     BRAVE_API_KEY: str = os.getenv("BRAVE_API_KEY", "")
     GEOAPIFY_API_KEY: str = os.getenv("GEOAPIFY_API_KEY", "")
     OPENWEATHER_API_KEY: str = os.getenv("OPENWEATHER_API_KEY", "")
-
-    # Cache
-    REDIS_URL: str
 
     # CORS (comma-separated string, parsed into list)
     ALLOWED_ORIGINS: str = "http://localhost:5173"

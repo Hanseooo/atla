@@ -88,6 +88,8 @@ async def generate_itinerary(intent: TravelIntent) -> ItineraryOutput:
         raw_text = result.content if hasattr(result, "content") else str(result)
         if isinstance(raw_text, list):
             raw_text = raw_text[0]
+        if not isinstance(raw_text, str):
+            raw_text = str(raw_text)
 
         raw_itinerary = _parse_json(raw_text)
 
@@ -140,8 +142,7 @@ async def _gather_context(intent: TravelIntent) -> tuple[str, str]:
                     "limit": 30,
                 })
                 weather_task = get_weather.ainvoke({
-                    "latitude": lat,
-                    "longitude": lon,
+                    "location": f"{intent.destination}, Philippines",
                 })
 
                 places_result, weather_result = await asyncio.gather(
@@ -281,6 +282,6 @@ def _convert_to_output(raw: dict, intent: TravelIntent) -> ItineraryOutput:
         days=intent.days or len(days_data),
         budget=intent.budget,
         companions=intent.companions,
-        travel_style=intent.travel_style,
+        travel_style=list(intent.travel_style),
         time_of_year=intent.time_of_year,
     )

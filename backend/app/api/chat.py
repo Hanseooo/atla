@@ -56,6 +56,26 @@ async def submit_clarification(
         
     return response
 
+
+@router.post("/{session_id}/generate-itinerary", response_model=ItineraryResponse)
+async def generate_itinerary_for_session(
+    session_id: str,
+    current_user: Optional[Any] = Depends(get_current_user_optional)
+):
+    """Generate itinerary for an existing complete session intent."""
+    service = ChatService()
+    user_id = current_user.id if current_user else None
+
+    response = await service.generate_itinerary_for_session(
+        session_id=session_id,
+        user_id=user_id,
+    )
+
+    if getattr(response, "type", "") == "error":
+        raise HTTPException(status_code=400, detail=response.message)
+
+    return response
+
 @router.get("/{session_id}", response_model=ChatSession)
 async def get_chat_history(
     session_id: str,
@@ -65,8 +85,8 @@ async def get_chat_history(
     service = ChatService()
     user_id = current_user.id if current_user else None
     
-    session = await service._get_or_create_session(session_id, user_id)
-    if not session.current_intent and not session.last_clarification:
+    session = await service._get_session(session_id)
+    if session is None or (not session.current_intent and not session.last_clarification):
         raise HTTPException(status_code=404, detail="Session not found")
         
     return session
