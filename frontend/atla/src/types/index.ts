@@ -49,7 +49,7 @@ export type {
   SignupCredentials,
 } from './user'
 
-// Chat/AI types
+// Chat/AI types - type exports
 export type {
   ChatRequest,
   ChatResponse,
@@ -82,6 +82,10 @@ export type {
   TransportPreference,
   ActivityCategory,
   QuestionType,
+} from './chat'
+
+// Chat/AI constants and functions - runtime exports
+export {
   REQUIRED_FIELDS,
   VALID_BUDGETS,
   VALID_COMPANIONS,

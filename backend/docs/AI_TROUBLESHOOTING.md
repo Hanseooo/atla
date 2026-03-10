@@ -306,7 +306,7 @@ with patch("app.ai.chains.intent_extraction.LLMFactory.create_llm") as mock:
 
 ## Getting Help
 
-###收集调试信息
+### Collecting Debug Information
 
 When reporting issues, include:
 
@@ -316,7 +316,7 @@ When reporting issues, include:
 4. **API keys** (masked)
 5. **Logs** (with DEBUG level)
 
-### 联系方式
+### Contact
 
 - Check [GitHub Issues](https://github.com/atla-ai/atla/issues)
 - Review [AI Architecture](./AI_ARCHITECTURE.md)
