@@ -83,6 +83,13 @@ export const useAuthStore = create<AuthState>()(
           })
           
           if (error) throw error
+
+          // Persist Supabase session before backend calls so Authorization
+          // header is available for immediate authenticated requests.
+          set({
+            user: data.user,
+            session: data.session,
+          })
           
           // Fetch user profile after login
           let profile: UserProfile | null = null
@@ -96,8 +103,6 @@ export const useAuthStore = create<AuthState>()(
           }
           
           set({ 
-            user: data.user, 
-            session: data.session,
             profile,
             isLoading: false 
           })
@@ -121,6 +126,12 @@ export const useAuthStore = create<AuthState>()(
           })
           
           if (error) throw error
+
+          // Persist Supabase session before backend profile setup call.
+          set({
+            user: data.user,
+            session: data.session,
+          })
           
           // Step 2: Create/enrich profile via backend API
           // This updates the trigger-created profile with username
@@ -131,8 +142,6 @@ export const useAuthStore = create<AuthState>()(
             })
             
             set({ 
-              user: data.user, 
-              session: data.session,
               profile: profileResponse,
               isLoading: false 
             })
