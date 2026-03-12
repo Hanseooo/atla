@@ -64,7 +64,7 @@ export function useUsernameCheck(debounceMs: number = 500) {
             setError(check.message || 'Username is already taken')
           }
         }
-      } catch (err: any) {
+      } catch {
         // Only update error if this is still the latest request
         if (currentRequestId === requestIdRef.current) {
           setError('Failed to check username availability')
