@@ -90,8 +90,9 @@ export function SignupPage({ onSignup }: SignupPageProps) {
       setTimeout(() => {
         onSignup?.();
       }, 2000);
-    } catch (err: any) {
-      setError(err.message || "Failed to sign up");
+    } catch (err: unknown) {
+      const error = err as Error;
+      setError(error.message || "Failed to sign up");
     }
   };
 
@@ -106,8 +107,9 @@ export function SignupPage({ onSignup }: SignupPageProps) {
       setTimeout(() => {
         onSignup?.();
       }, 2000);
-    } catch (err: any) {
-      setError(err.message || "Failed to retry profile creation");
+    } catch (err: unknown) {
+      const error = err as Error;
+      setError(error.message || "Failed to retry profile creation");
     } finally {
       setIsRetrying(false);
     }

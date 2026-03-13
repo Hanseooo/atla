@@ -55,7 +55,7 @@ export const useAuthStore = create<AuthState>()(
           if (session?.user) {
             try {
               profile = await apiGet<UserProfile>('/auth/me')
-            } catch (err: any) {
+            } catch {
               // Profile doesn't exist yet (edge case)
               console.warn('Profile not found for user:', session.user.id)
             }
@@ -95,7 +95,7 @@ export const useAuthStore = create<AuthState>()(
           let profile: UserProfile | null = null
           try {
             profile = await apiGet<UserProfile>('/auth/me')
-          } catch (err: any) {
+          } catch {
             // Profile doesn't exist - this is an edge case
             // User might have been created before the trigger existed
             console.warn('Profile not found, creating...')
@@ -145,9 +145,10 @@ export const useAuthStore = create<AuthState>()(
               profile: profileResponse,
               isLoading: false 
             })
-          } catch (profileError: any) {
+          } catch (profileError: unknown) {
+            const err = profileError as { response?: { data?: { detail?: string } } };
             // Profile creation failed - handle gracefully (Option B)
-            console.error('Profile creation failed:', profileError)
+            console.error('Profile creation failed:', err)
             
             // Store error for UI to display retry option
             set({
@@ -155,7 +156,7 @@ export const useAuthStore = create<AuthState>()(
               session: data.session,
               isLoading: false,
               profileCreationError: {
-                message: profileError.response?.data?.detail || 'Failed to complete profile setup. Please try again.',
+                message: err.response?.data?.detail || 'Failed to complete profile setup. Please try again.',
                 canRetry: true
               }
             })
@@ -188,11 +189,12 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             profileCreationError: null
           })
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const err = error as { response?: { data?: { detail?: string } } };
           set({
             isLoading: false,
             profileCreationError: {
-              message: error.response?.data?.detail || 'Failed to create profile. Please try again.',
+              message: err.response?.data?.detail || 'Failed to create profile. Please try again.',
               canRetry: true
             }
           })

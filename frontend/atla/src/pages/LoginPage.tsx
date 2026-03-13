@@ -28,8 +28,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     try {
       await signIn(email, password);
       onLogin?.();
-    } catch (err: any) {
-      const errorMessage = err.message || "Failed to sign in";
+    } catch (err: unknown) {
+      const error = err as Error;
+      const errorMessage = error.message || "Failed to sign in";
       if (errorMessage.includes("Invalid login credentials")) {
         setError("Invalid email or password. Please try again.");
       } else if (errorMessage.includes("Email not confirmed")) {
