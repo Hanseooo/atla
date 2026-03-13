@@ -5,7 +5,8 @@ import { useState, useRef, useEffect } from 'react'
 import { useSendMessage, useSubmitClarification } from '../hooks/useChat'
 import { useChatStore } from '../stores/chatStore'
 import { Alert, AlertDescription } from '../components/ui/alert'
-import { isClarificationResponse, isItineraryResponse } from '../types/chat'
+import { getErrorMessage } from '../lib/api'
+import { isClarificationResponse, isItineraryResponse, type ChatResponse } from '../types/chat'
 import { MapPin, Calendar, Wallet, Users, ArrowRight } from 'lucide-react'
 
 export function ChatPage() {
@@ -23,10 +24,17 @@ export function ChatPage() {
     }
   }, [messages, sendMessageMutation.isPending, submitClarificationMutation.isPending])
   
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleProcessResponse = (response: any) => {
+  const formatAnswer = (answer: unknown): string => {
+    if (typeof answer === 'string') return answer
+    if (typeof answer === 'number' || typeof answer === 'boolean') return String(answer)
+    if (Array.isArray(answer)) return answer.join(', ')
+    if (answer && typeof answer === 'object') return JSON.stringify(answer)
+    return 'Provided answer'
+  }
+
+  const handleProcessResponse = (response: ChatResponse) => {
     // Update session ID if it's a new session
-    if ('session_id' in response && response.session_id && response.session_id !== sessionId) {
+    if (response.type !== 'error' && response.session_id && response.session_id !== sessionId) {
       setSessionId(response.session_id)
     }
 
@@ -52,27 +60,24 @@ export function ChatPage() {
       })
       handleProcessResponse(response)
     } catch (error: unknown) {
-      const err = error as Error;
-      addMessage({ role: 'assistant', content: `Sorry, an error occurred: ${err.message || 'Please try again.'}` })
+      addMessage({ role: 'assistant', content: `Sorry, an error occurred: ${getErrorMessage(error)}` })
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleAnswerQuestion = async (field: string, answer: any) => {
-    if (!sessionId || submitClarificationMutation.isPending) return;
+  const handleAnswerQuestion = async (field: string, answer: unknown) => {
+    if (!sessionId || submitClarificationMutation.isPending) return
 
     // Display the user's answer in the chat
-    addMessage({ role: 'user', content: String(answer) });
+    addMessage({ role: 'user', content: formatAnswer(answer) })
 
     try {
       const response = await submitClarificationMutation.mutateAsync({
         sessionId,
-        answers: { [field]: answer }
-      });
-      handleProcessResponse(response);
+        answers: { [field]: answer },
+      })
+      handleProcessResponse(response)
     } catch (error: unknown) {
-      const err = error as Error;
-      addMessage({ role: 'assistant', content: `Sorry, an error occurred: ${err.message || 'Please try again.'}` });
+      addMessage({ role: 'assistant', content: `Sorry, an error occurred: ${getErrorMessage(error)}` })
     }
   }
   
@@ -201,7 +206,7 @@ export function ChatPage() {
                             )}
                           </CardContent>
                           <CardFooter>
-                            <Button className="w-full sm:w-auto" onClick={() => console.log("Interary Details btn is clicked!")}>
+                            <Button className="w-full sm:w-auto" type="button">
                               View Full Itinerary Details <ArrowRight className="ml-2 h-4 w-4" />
                             </Button>
                           </CardFooter>
@@ -224,7 +229,7 @@ export function ChatPage() {
             {(sendMessageMutation.isError || submitClarificationMutation.isError) && (
               <Alert variant="destructive" className="mt-4">
                 <AlertDescription>
-                  {sendMessageMutation.error?.message || submitClarificationMutation.error?.message || 'Failed to communicate with AI'}
+                  {getErrorMessage(sendMessageMutation.error ?? submitClarificationMutation.error)}
                 </AlertDescription>
               </Alert>
             )}
