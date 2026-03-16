@@ -7,6 +7,7 @@ import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
 import { Button } from '../ui/button';
 import { RefreshCcw } from 'lucide-react';
+import type { AxiosError } from 'axios';
 
 export function ChatInterface() {
   const { addMessage, sessionId, setSessionId, clearMessages, messages } = useChatStore();
@@ -14,24 +15,34 @@ export function ChatInterface() {
   // Use the session query to verify if the backend still remembers this session
   const { 
     isError: isSessionError, 
-    isFetching: isFetchingSession 
+    isFetching: isFetchingSession,
+    error: sessionError,
   } = useChatSession(sessionId);
 
   // If the backend session doesn't exist (example: server restarted), wipe the local storage and start fresh
   useEffect(() => {
-    if (isSessionError) {
+    if (!isSessionError) return;
+  
+    const status = (sessionError as AxiosError | null | undefined)?.response?.status;
+    if (status === 404) {
       clearMessages();
       addMessage({
         role: 'assistant',
         content: "Oops! It looks like your previous session expired. Let's start a brand new plan! Where would you like to go?"
       });
     }
-  }, [isSessionError, clearMessages, addMessage]);
+  }, [isSessionError, sessionError, clearMessages, addMessage]);
 
   const sendMessageMutation = useSendMessage();
   const submitClarificationMutation = useSubmitClarification();
 
   const handleResetSession = () => {
+    const hasPendingRequest = sendMessageMutation.isPending || submitClarificationMutation.isPending;
+    if (hasPendingRequest) {
+      window.alert( 'Please wait for the current response to finish before starting a new trip plan.');
+    return;
+    }
+
     if (window.confirm("Are you sure you want to start a new trip plan? This will clear your current conversation.")) {
       clearMessages();
     }
