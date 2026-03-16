@@ -1,15 +1,52 @@
-import { useSendMessage, useSubmitClarification } from '../../hooks/useChat';
+import { useEffect } from 'react';
+import { useSendMessage, useSubmitClarification, useChatSession } from '../../hooks/useChat';
 import { useChatStore } from '../../stores/chatStore';
 import { getErrorMessage } from '../../lib/api';
 import type { ChatResponse } from '../../types/chat';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
+import { Button } from '../ui/button';
+import { RefreshCcw } from 'lucide-react';
+import type { AxiosError } from 'axios';
 
 export function ChatInterface() {
-  const { addMessage, sessionId, setSessionId } = useChatStore();
+  const { addMessage, sessionId, setSessionId, clearMessages, messages } = useChatStore();
+
+  // Use the session query to verify if the backend still remembers this session
+  const { 
+    isError: isSessionError, 
+    isFetching: isFetchingSession,
+    error: sessionError,
+  } = useChatSession(sessionId);
+
+  // If the backend session doesn't exist (example: server restarted), wipe the local storage and start fresh
+  useEffect(() => {
+    if (!isSessionError) return;
   
+    const status = (sessionError as AxiosError | null | undefined)?.response?.status;
+    if (status === 404) {
+      clearMessages();
+      addMessage({
+        role: 'assistant',
+        content: "Oops! It looks like your previous session expired. Let's start a brand new plan! Where would you like to go?"
+      });
+    }
+  }, [isSessionError, sessionError, clearMessages, addMessage]);
+
   const sendMessageMutation = useSendMessage();
   const submitClarificationMutation = useSubmitClarification();
+
+  const handleResetSession = () => {
+    const hasPendingRequest = sendMessageMutation.isPending || submitClarificationMutation.isPending;
+    if (hasPendingRequest) {
+      window.alert( 'Please wait for the current response to finish before starting a new trip plan.');
+    return;
+    }
+
+    if (window.confirm("Are you sure you want to start a new trip plan? This will clear your current conversation.")) {
+      clearMessages();
+    }
+  };
 
   const formatAnswer = (answer: unknown): string => {
     if (typeof answer === 'string') return answer;
@@ -33,7 +70,7 @@ export function ChatInterface() {
 
   const handleSend = async (userMessage: string) => {
     addMessage({ role: 'user', content: userMessage });
-    
+
     try {
       const response = await sendMessageMutation.mutateAsync({
         message: userMessage,
@@ -41,7 +78,7 @@ export function ChatInterface() {
       });
       handleProcessResponse(response);
     } catch (error: unknown) {
-      addMessage({ role: 'assistant', content: `Sorry, an error occurred: ${getErrorMessage(error)}` });
+      addMessage({ role: 'assistant', content: `Sorry, an error occurred: ${getErrorMessage(error)}` });  
     }
   };
 
@@ -57,25 +94,40 @@ export function ChatInterface() {
       });
       handleProcessResponse(response);
     } catch (error: unknown) {
-      addMessage({ role: 'assistant', content: `Sorry, an error occurred: ${getErrorMessage(error)}` });
+      addMessage({ role: 'assistant', content: `Sorry, an error occurred: ${getErrorMessage(error)}` });  
     }
   };
 
-  const isPending = sendMessageMutation.isPending || submitClarificationMutation.isPending;
-  const error = (sendMessageMutation.isError || submitClarificationMutation.isError) 
-    ? getErrorMessage(sendMessageMutation.error ?? submitClarificationMutation.error) 
+  const isPending = sendMessageMutation.isPending || submitClarificationMutation.isPending || isFetchingSession;
+  const error = (sendMessageMutation.isError || submitClarificationMutation.isError)
+    ? getErrorMessage(sendMessageMutation.error ?? submitClarificationMutation.error)
     : null;
 
   return (
     <>
-      <MessageList 
+      {/* Temporary place of Start New Plan btn until we have a finalized UI/UX design for session management */}
+      {messages.length > 0 && (
+        <div className="absolute top-4 right-4 z-20">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={handleResetSession}
+            className="text-muted-foreground hover:text-destructive text-xs flex items-center gap-1.5"
+          >
+            <RefreshCcw className="w-3.5 h-3.5" />
+            Start New Plan
+          </Button>
+        </div>
+      )}
+
+      <MessageList
         isPending={isPending} 
-        error={error} 
-        onAnswerQuestion={handleAnswerQuestion} 
+        error={error}
+        onAnswerQuestion={handleAnswerQuestion}
       />
-      <ChatInput 
-        onSend={handleSend} 
-        isPending={isPending} 
+      <ChatInput
+        onSend={handleSend}
+        isPending={isPending}
       />
     </>
   );
