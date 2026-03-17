@@ -11,10 +11,10 @@ export function ClarificationOptions({ data, isPending, onAnswer }: Clarificatio
   if (!data.questions || data.questions.length === 0) return null;
 
   return (
-    <div className="flex flex-col items-start gap-3 mt-2 ml-4">
+    <div className="flex flex-col gap-3 mt-3 max-w-full">
       {/* Progress Bar */}
       {data.progress && (
-        <div className="w-full max-w-[80%] space-y-1">
+        <div className="ml-0.5 md:ml-0.5 w-full max-w-[280px] sm:max-w-[320px] space-y-1">
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>Planning Progress</span>
             <span>

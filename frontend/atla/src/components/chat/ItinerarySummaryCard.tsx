@@ -34,7 +34,7 @@ export function ItinerarySummaryCard({ data }: ItinerarySummaryCardProps) {
   const safeCurrency = data.estimated_cost?.currency || '₱';
 
   return (
-    <div className="flex flex-col items-start mt-2 ml-4 w-full max-w-[90%]">
+    <div className="flex flex-col items-start mt-2 w-full max-w-full overflow-hidden">
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         {/* The Chat Bubble Card */}
         <div className="w-full bg-primary/5 border border-primary/20 rounded-xl overflow-hidden shadow-sm">
@@ -109,7 +109,7 @@ export function ItinerarySummaryCard({ data }: ItinerarySummaryCardProps) {
             </div>
           </div>
 
-          <div className="p-3 bg-muted/30 border-t">
+          <div className="p-4 bg-muted/30 border-t">
             <DialogTrigger asChild>
               <Button className="w-full font-semibold shadow-sm" size="lg">
                 View Full Itinerary <ArrowRight className="ml-2 h-4 w-4" />
