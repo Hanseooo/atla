@@ -24,7 +24,19 @@ export async function requireGuest() {
   const { data: { session } } = await supabase.auth.getSession()
   
   if (session) {
-    throw redirect({ to: '/' })
+    throw redirect({ to: '/home' })
+  }
+}
+
+/**
+ * Redirect authenticated - redirects to home if user is already logged in
+ * Use this for the landing page to skip it for active users
+ */
+export async function redirectAuthenticated() {
+  const { data: { session } } = await supabase.auth.getSession()
+  
+  if (session) {
+    throw redirect({ to: '/home' })
   }
 }
 

@@ -7,9 +7,9 @@ export function ExplorePage() {
   const [search, setSearch] = useState('')
   
   return (
-    <div className="min-h-screen p-4">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">Explore Places</h1>
+    <div className="min-h-screen p-4 md:p-0 pb-[80px] md:pb-8 bg-muted/10">
+      <div className="max-w-4xl mx-auto mt-4 md:mt-8">
+        <h1 className="text-3xl font-extrabold tracking-tight text-foreground mb-6">Explore Places</h1>
         
         <div className="flex gap-2 mb-6">
           <Input
@@ -20,7 +20,7 @@ export function ExplorePage() {
           <Button>Search</Button>
         </div>
         
-        <Card>
+        <Card className="border shadow-sm">
           <CardHeader>
             <CardTitle>Popular Destinations</CardTitle>
             <CardDescription>

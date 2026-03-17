@@ -107,8 +107,8 @@ export function ChatInterface() {
     <>
       {/* Temporary place of Start New Plan btn until we have a finalized UI/UX design for session management */}
       {messages.length > 0 && (
-        <div className="absolute top-4 right-4 z-20">
-          <Button 
+        <div className="absolute top-0.5 -right-2.5 sm:top-4 sm:right-4 z-20">
+          <Button
             variant="ghost" 
             size="sm" 
             onClick={handleResetSession}

@@ -18,8 +18,8 @@ export function ChatInput({ onSend, isPending }: ChatInputProps) {
   };
 
   return (
-    <div className="p-4 border-t mt-auto">
-      <div className="flex gap-2">
+    <div className="md:px-4 border-t mt-auto">
+      <div className="mt-4 flex gap-2">
         <Input
           placeholder="Type your message..."
           value={input}

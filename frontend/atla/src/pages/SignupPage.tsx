@@ -288,7 +288,7 @@ export function SignupPage({ onSignup }: SignupPageProps) {
               Get Started
             </h2>
             <p className="text-zinc-500 font-medium">
-              Start planning your Philippine adventures today
+              Start planning your Philippine adventures today.
             </p>
           </div>
 

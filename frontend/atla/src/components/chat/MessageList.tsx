@@ -23,10 +23,10 @@ export function MessageList({ isPending, error, onAnswerQuestion }: MessageListP
   }, [messages, isPending]);
 
   return (
-    <div className="flex-1 overflow-y-auto space-y-4 p-4" ref={scrollRef}>
+    <div className="flex-1 overflow-y-auto space-y-4" ref={scrollRef}>
       {messages.length === 0 ? (
-        <div className="text-center text-muted-foreground py-8">
-          <p>Try saying:</p>
+        <div className="flex items-center justify-center h-60 flex-col text-muted-foreground py-8">
+          <p>Try to say:</p>
           <p className="mt-2">"I want to visit Palawan for 3 days"</p>
         </div>
       ) : (
@@ -37,7 +37,7 @@ export function MessageList({ isPending, error, onAnswerQuestion }: MessageListP
           const isLatestAssistant = i === messages.length - 1 && msg.role === 'assistant';
 
           return (
-            <div key={i} className="flex flex-col gap-2">
+            <div key={i} className="flex flex-col gap-2 sm:px-6">
               <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div
                   className={`max-w-[90%] md:max-w-[80%] rounded-lg px-4 py-2 whitespace-pre-wrap text-sm md:text-base ${
@@ -69,7 +69,7 @@ export function MessageList({ isPending, error, onAnswerQuestion }: MessageListP
       )}
 
       {isPending && (
-        <div className="flex justify-start">
+        <div className="flex justify-start px-0 sm:px-6">
           <div className="max-w-[80%] rounded-lg px-4 py-2 bg-muted text-muted-foreground animate-pulse">
             AI is thinking...
           </div>

@@ -107,7 +107,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="flex items-center justify-center p-6 md:p-12 lg:p-16">
+      <div className="flex items-center justify-center p-6 md:p-8 lg:p-12 overflow-y-auto">
         <div className="w-full max-w-md space-y-8">
           <div className="lg:hidden flex justify-center mb-8">
             <Link to="/" className="flex items-center gap-2">
@@ -125,11 +125,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               Sign In
             </h2>
             <p className="text-zinc-500 font-medium">
-              Enter your credentials to access your dream trips in Philippines
+              Enter your credentials to access <br/> your dream trips in Philippines.
             </p>
           </div>
 
-          <Card className="border border-zinc-200 shadow-2xl shadow-emerald-100/20 bg-white overflow-hidden transition-all duration-300">
+          <Card className="border gap-0 pb-8 border-zinc-200 shadow-2xl shadow-emerald-100/20 bg-white overflow-hidden transition-all duration-300">
             <CardHeader className="space-y-1 pb-4">
               {error && (
                 <Alert
@@ -202,7 +202,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                     </>
                   ) : (
                     <span className="flex items-center gap-2">
-                      Continue Planning{" "}
+                      Unlock{" "}
                       <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                     </span>
                   )}
