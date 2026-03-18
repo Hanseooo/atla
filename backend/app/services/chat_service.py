@@ -1,7 +1,7 @@
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 from app.ai.chains.intent_extraction import (
     extract_intent,
@@ -29,14 +29,47 @@ class ChatService:
         # Kept for backward compatibility while Redis is intentionally disabled.
         self.redis_url = redis_url
 
+    def _reconcile_session_identity(
+        self,
+        session: ChatSession,
+        user_id: Optional[str],
+    ) -> Tuple[bool, Optional[ErrorResponse]]:
+        """Bind anonymous sessions to authenticated users and enforce ownership."""
+        if session.user_id is None and user_id:
+            session.user_id = user_id
+            return True, None
+
+        if session.user_id is None:
+            return False, None
+
+        if user_id is None:
+            return False, ErrorResponse(
+                error_code="SESSION_ACCESS_DENIED",
+                message="Authentication is required to access this session.",
+            )
+
+        if session.user_id != user_id:
+            return False, ErrorResponse(
+                error_code="SESSION_ACCESS_DENIED",
+                message="You do not have access to this chat session.",
+            )
+
+        return False, None
+
     async def _get_or_create_session(
         self,
         session_id: Optional[str],
         user_id: Optional[str],
-    ) -> ChatSession:
+    ) -> Union[ChatSession, ErrorResponse]:
         """Get existing in-memory session or create new one."""
         if session_id and session_id in self._sessions:
-            return self._sessions[session_id]
+            session = self._sessions[session_id]
+            identity_changed, error = self._reconcile_session_identity(session, user_id)
+            if error:
+                return error
+            if identity_changed:
+                await self._save_session(session)
+            return session
 
         session = ChatSession(
             id=session_id or str(uuid.uuid4()),
@@ -53,6 +86,25 @@ class ChatService:
 
     async def _get_session(self, session_id: str) -> Optional[ChatSession]:
         return self._sessions.get(session_id)
+
+    async def get_session(
+        self,
+        session_id: str,
+        user_id: Optional[str] = None,
+    ) -> Union[ChatSession, ErrorResponse, None]:
+        """Get a session while enforcing ownership rules for the active user."""
+        session = await self._get_session(session_id)
+        if session is None:
+            return None
+
+        identity_changed, error = self._reconcile_session_identity(session, user_id)
+        if error:
+            return error
+
+        if identity_changed:
+            await self._save_session(session)
+
+        return session
 
     async def _load_user_preferences(self, user_id: str) -> Optional[dict]:
         """Load user preferences from DB (stub for future integration)."""
@@ -106,7 +158,10 @@ class ChatService:
     ) -> Union[ClarificationResponse, ItineraryResponse, ErrorResponse]:
         """Process an incoming chat message."""
         try:
-            session = await self._get_or_create_session(session_id, user_id)
+            session_or_error = await self._get_or_create_session(session_id, user_id)
+            if isinstance(session_or_error, ErrorResponse):
+                return session_or_error
+            session = session_or_error
             user_context = await self._load_user_preferences(user_id) if user_id else None
 
             intent = await extract_intent(message, user_context)
@@ -142,7 +197,10 @@ class ChatService:
     ) -> Union[ClarificationResponse, ItineraryResponse, ErrorResponse]:
         """Process answers to clarification questions."""
         try:
-            session = await self._get_or_create_session(session_id, user_id)
+            session_or_error = await self._get_or_create_session(session_id, user_id)
+            if isinstance(session_or_error, ErrorResponse):
+                return session_or_error
+            session = session_or_error
 
             if not session.current_intent:
                 return ErrorResponse(
@@ -178,7 +236,10 @@ class ChatService:
     ) -> Union[ItineraryResponse, ErrorResponse]:
         """Generate an itinerary for a complete intent in an existing session."""
         try:
-            session = await self._get_or_create_session(session_id, user_id)
+            session_or_error = await self._get_or_create_session(session_id, user_id)
+            if isinstance(session_or_error, ErrorResponse):
+                return session_or_error
+            session = session_or_error
 
             if not session.current_intent:
                 return ErrorResponse(
