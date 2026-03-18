@@ -4,7 +4,7 @@ import pytest
 
 from app.ai.schemas.intent import ClarificationResponse, TravelIntent
 from app.ai.schemas.itinerary import ItineraryOutput
-from app.schemas.chat_api import ItineraryResponse
+from app.schemas.chat_api import ErrorResponse, ItineraryResponse
 from app.services.chat_service import ChatService
 
 
@@ -59,3 +59,39 @@ async def test_process_message_itinerary(chat_service):
         assert response.session_id is not None
         assert response.destination == "Cebu"
         assert response.days == 3
+
+
+@pytest.mark.asyncio
+async def test_existing_anonymous_session_binds_to_authenticated_user(chat_service):
+    anonymous_session = await chat_service._get_or_create_session("session-1", None)
+
+    assert anonymous_session.user_id is None
+
+    bound_session = await chat_service._get_or_create_session("session-1", "user-123")
+
+    assert not isinstance(bound_session, ErrorResponse)
+    assert bound_session.user_id == "user-123"
+
+
+@pytest.mark.asyncio
+async def test_owned_session_denies_different_authenticated_user(chat_service):
+    owner_session = await chat_service._get_or_create_session("session-2", "user-123")
+
+    assert owner_session.user_id == "user-123"
+
+    denied = await chat_service._get_or_create_session("session-2", "user-999")
+
+    assert isinstance(denied, ErrorResponse)
+    assert denied.error_code == "SESSION_ACCESS_DENIED"
+
+
+@pytest.mark.asyncio
+async def test_owned_session_denies_anonymous_access(chat_service):
+    owner_session = await chat_service._get_or_create_session("session-3", "user-123")
+
+    assert owner_session.user_id == "user-123"
+
+    denied = await chat_service.get_session("session-3", None)
+
+    assert isinstance(denied, ErrorResponse)
+    assert denied.error_code == "SESSION_ACCESS_DENIED"

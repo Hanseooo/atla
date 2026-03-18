@@ -1,402 +1,172 @@
-# AGENTS.md - AI Coding Agent Instructions
+# AGENTS.md
 
-Atla - A full-stack Philippine AI Travel Planning app with React frontend and FastAPI backend.
+Team-shared operating rules for AI coding agents in `ph-travel-app`.
 
-**Tech Stack:**
-- Frontend: React 19 + TypeScript + Vite + Tailwind CSS v4 + TanStack Router/Query + Zustand
-- Backend: FastAPI + Python 3.11+ + SQLModel + asyncpg + PostgreSQL (Supabase)
-- AI: LangChain + Google Gemini 2.5 flash-lite
-- Cache: Redis via Upstash
+## Metadata
 
-## Build Commands
+- Owner: Engineering Team (assumption: no explicit CODEOWNERS/policy owner file found)
+- Last reviewed: 2026-03-18
+- Review cadence: Monthly and on workflow/tooling changes (assumption)
 
-### Backend (Python/FastAPI)
+## Project context
 
-```bash
-cd backend && source venv/bin/activate  # Windows: venv\Scripts\activate
+- Monorepo with frontend (`frontend/atla`) and backend (`backend`) plus docs/workflows (`docs/`, `.github/`) (from `README.md`, `docs/CONTRIBUTING.md`).
+- Frontend stack: React 19 + TypeScript + Vite + TanStack Router + Tailwind CSS (from `README.md`, `frontend/atla/package.json`).
+- Backend stack: FastAPI + Python 3.11+ + SQLModel + Alembic + PostgreSQL/Supabase + LangChain/Gemini (from `README.md`, `ARCH.md`, `backend/requirements.txt`).
+- CI present in repo: frontend PR workflow only, triggered for frontend/workflow changes on `main` and `develop` PRs (from `.github/workflows/frontend-ci.yml`).
+- Supported development OS appears cross-platform (Windows and macOS/Linux setup instructions exist) (from `README.md`, `SETUP.md`, `docs/CONTRIBUTING.md`).
 
-# Development
-uvicorn app.main:app --reload
+## Commands (Use Exactly)
 
-# Testing
-pytest                           # Run all tests
-pytest tests/test_specific.py   # Run single test file
-pytest -k test_name            # Run specific test by name
-pytest -v                      # Verbose output
+- Install
+  - Frontend dependencies: `cd frontend/atla && npm ci` (from `.github/workflows/frontend-ci.yml`).
+  - Frontend Node version: `cd frontend/atla && nvm use 20` (from `frontend/atla/.nvmrc`, `.github/workflows/frontend-ci.yml`).
+  - Backend env + deps (both OS): `cd backend && python -m venv venv && pip install -r requirements.txt` (from `README.md`, `SETUP.md`, `docs/CONTRIBUTING.md`).
+  - Backend venv activate (Windows): `cd backend && venv\Scripts\activate` (from `README.md`, `SETUP.md`).
+  - Backend venv activate (macOS/Linux): `cd backend && source venv/bin/activate` (from `README.md`, `SETUP.md`).
 
-# Linting & Formatting
-black app/                     # Format Python code
-ruff check app/                # Check only
-ruff check --fix app/          # Auto-fix issues
+- Lint
+  - Frontend: `cd frontend/atla && npm run lint` (from `frontend/atla/package.json`, `README.md`).
+  - Backend: `cd backend && ruff check app` (from `README.md`, `backend/pyproject.toml`).
 
-# Database
-alembic revision --autogenerate -m "Description"
-alembic upgrade head           # Apply migrations
-alembic downgrade -1           # Rollback one migration
+- Typecheck
+  - Frontend: `cd frontend/atla && npm run generate:routes && npm run typecheck` (from `.github/workflows/frontend-ci.yml`, `frontend/atla/package.json`).
+  - Backend: no documented dedicated static typecheck command (gap confirmed from `backend/pyproject.toml`, `README.md`, `docs/CONTRIBUTING.md`).
+
+- Test
+  - Backend: `cd backend && pytest` (from `README.md`, `SETUP.md`, `docs/PULL_REQUESTS.md`).
+  - Frontend: no `test` script defined; do not claim automated frontend tests unless added in the same change (from `frontend/atla/package.json`).
+
+- Verify (before PR or done claim)
+  - Frontend: `cd frontend/atla && npm run generate:routes && npm run typecheck && npm run build && npm run lint` (from `.github/workflows/frontend-ci.yml`, `docs/CONTRIBUTING.md`).
+  - Backend: `cd backend && ruff check app && pytest` (assumption based on `README.md` + `docs/PULL_REQUESTS.md`; no single canonical `verify` command documented).
+
+## Policy tiers
+
+- `MUST`: blocking requirement; do not mark task complete if unmet.
+- `SHOULD`: strong default; deviation requires explicit rationale in completion report.
+- `MAY`: optional guidance; apply when useful and low-risk.
+
+## Rule precedence
+
+1. Safety and data integrity
+2. Security
+3. User intent
+4. Workflow/process rules
+5. Style preferences
+
+## Agent behavior
+
+- `MUST` state exact impact and wait for confirmation before destructive actions (delete/overwrite unrelated content, force push, reset, dropping schema/tables).
+- `MUST` create a short, checkable plan before non-trivial work (3+ steps, cross-file edits, architecture-impacting changes).
+- `MUST` stop and re-plan if new evidence invalidates the plan.
+- `MUST` stop after 2 failed attempts and return exactly:
+
+```text
+Blocked Report
+1) What I tried:
+2) Evidence (error/log/output):
+3) Current hypothesis:
+4) Exact blocker:
+5) Recommended next step:
 ```
 
-### Frontend (React/TypeScript)
-
-```bash
-cd frontend/atla
-
-# Development
-npm run dev                    # Start Vite dev server
-npm run preview               # Preview production build
-npm run build                 # Production build
-
-# Testing (Vitest not yet configured - add with: npm install -D vitest @testing-library/react @testing-library/jest-dom)
-# Then use: npx vitest run src/components/MyComponent.test.tsx
-
-# Linting
-npm run lint                  # Run ESLint
-npm run lint -- --fix         # Auto-fix ESLint issues
-```
-
-## Code Style Guidelines
-
-### Python (Backend)
-
-**Formatting (Black):** Line length 88, Python 3.11+, double quotes, trailing commas.
-
-**Linting (Ruff):** PEP 8, import order (stdlib → third-party → local), rules: E, W, F, I, N, UP.
-
-**Naming:** Classes `PascalCase`, functions/variables `snake_case`, constants `UPPER_SNAKE_CASE`, private `_leading_underscore`, models singular (`Trip`), repos `{Model}Repository`.
-
-**Imports:**
-```python
-# 1. Standard library
-from typing import Optional, List
-from datetime import datetime
-
-# 2. Third-party
-from sqlmodel import SQLModel, Field
-from fastapi import APIRouter, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-
-# 3. Local modules (known-first-party: app)
-from app.models.trip import Trip
-from app.repositories.trip_repo import TripRepository
-```
-
-**Types:** Required for all params/returns. Use `Optional[T]` for nullable, SQLModel for responses, `Generic[ModelType]` for repos.
-
-**Errors:** Use `app/exceptions/`, wrap external APIs, log with context: `logger.exception("Failed: %s", entity_id)`, return proper HTTP codes (400, 404, 500, 503).
-
-### TypeScript/React (Frontend)
-
-**Formatting:** ESLint/TypeScript, semicolons true, single quotes, 2-space tabs.
-
-**Naming:** Components `PascalCase` (`TripCard`), hooks `usePascalCase`, functions/variables `camelCase`, types `PascalCase`, constants `UPPER_SNAKE_CASE`.
-
-**File Structure:**
-- Routes: `src/routes/{route}.tsx` (TanStack file-based routing)
-- Components: `src/components/{Name}.tsx`
-- Hooks: `src/hooks/use{Name}.ts`
-- Utils: `src/lib/{utility}.ts`
-
-**Component Pattern:**
-```typescript
-interface TripCardProps { trip: Trip; onDelete?: (id: number) => void; }
-
-export function TripCard({ trip, onDelete }: TripCardProps) {
-  return (/* JSX */);
-}
-
-// TanStack Router
-defineFileRoute('/trips/$tripId')({
-  component: TripDetailPage,
-  beforeLoad: requireAuth,
-})
-```
-
-**Path Aliases:** `@/` maps to `./src/`. Use: `import { Button } from '@/components/ui/button'`
-
-## Architecture Patterns
-
-### Backend
-
-**Repository Pattern:** All DB access through repos. Base: `app/repositories/base.py` with `BaseRepository[ModelType]`. Specific repos extend base.
-
-**Dependency Injection:** Use FastAPI `Depends()` for session/auth. Define in `app/api/deps.py`.
-
-**SQLModel:** One model per file in `app/models/`. Use `table=True` for DB tables. Separate response models (no `table=True`). Use `Field()` for validation. Use `sa_column=Column(JSONB)` for JSON.
-
-**Async:** All DB ops async via `AsyncSession`. Repository methods use `async def`.
-
-### Frontend
-
-**Data Fetching:** Use TanStack Query for server state. Query keys: `['trips', userId]`, `['trip', tripId]`. Mutations for POST/PUT/DELETE.
-
-**State:** React Query (server), Zustand (global auth/UI), useState/useReducer (local).
-
-**Routing:** File-based in `src/routes/`. Files match URL: `trips.$tripId.tsx` → `/trips/123`. Use `beforeLoad` for auth. Index routes: `index.tsx`, `trips.index.tsx`.
-
-**Errors:** React Query error handling + error boundaries. User-friendly messages. Log in dev.
-
-## Security
-
-- Never commit `.env` files
-- Use Supabase Row Level Security (RLS)
-- Validate inputs with Pydantic
-- Sanitize UI rendering
-- Use parameterized queries (SQLModel handles this)
-
-## API Conventions
-
-**Backend:** `/api/` prefix. RESTful: `/api/trips`, `/api/trips/{id}`. Methods: GET, POST, PUT, DELETE, PATCH.
-
-**Frontend:** Use axios. Base URL from `VITE_API_URL`. Handle errors with React Query.
-
-## Environment Variables
-
-**Backend (.env):** `ENVIRONMENT`, `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `GOOGLE_API_KEY`, `BRAVE_API_KEY`, `REDIS_URL`
-
-**Frontend (.env):** `VITE_API_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (always use `VITE_` prefix)
-
-## Development Workflow
-
-1. Start backend: `cd backend && uvicorn app.main:app --reload`
-2. Start frontend: `cd frontend/atla && npm run dev`
-3. Make changes following style guidelines
-4. Run linting: `ruff check app/` and `npm run lint`
-5. Run tests: `pytest` (backend configured)
-6. Format: `black app/`
-
-## Important Notes
-
-- SQLModel = SQLAlchemy ORM + Pydantic validation
-- All DB ops async via asyncpg
-- Repository pattern mandatory for DB access
-- RLS policies protect user data
-- AI uses LangChain + Google Gemini
-- Tailwind CSS v4 with `@tailwindcss/vite`
-- TanStack Router: file-based routing, create files in `src/routes/`
-
----
-
-## AI Agent Guidelines
-
-### Decision Making Protocol
-
-AI agents must follow this protocol when working on the codebase:
-
-**✅ Safe to Proceed (No Permission Needed):**
-- Creating new files and components
-- Code refactoring and cleanup
-- Documentation updates
-- Adding tests
-- UI/UX improvements within existing patterns
-- Bug fixes with clear solutions
-
-**❌ Must Ask User First:**
-- Architecture changes or pattern modifications
-- Breaking changes to existing APIs
-- Adding new dependencies (npm/pip packages)
-- Database schema changes
-- Removing existing features
-- Changes to authentication/authorization logic
-- Production deployment steps
-
-**❌ User Handles (Never Do These):**
-- Git operations (merge, rebase, force push)
-- Resolving merge conflicts
-- Production deployments
-- Direct commits to `main` branch
-- Rewriting git history
-
-### Communication Guidelines
-
-**When to Ask Questions:**
-- Requirements are ambiguous or unclear
-- Multiple valid approaches exist (present options with trade-offs)
-- Unfamiliar with a specific pattern or convention
-- Encounter unexpected errors or edge cases
-- Need access to credentials or environment variables
-
-**When to Proceed:**
-- Task is clearly defined and within scope
-- Following established patterns from documentation
-- Changes are isolated and reversible
-- No breaking changes introduced
-
-**Stopping Points:**
-- Always stop and ask before proceeding if uncertain
-- Never assume user wants breaking changes
-- Never push to remote branches without explicit permission
-- Never run destructive commands (drop database, delete migrations, etc.)
-
-### Branch Naming for AI Tasks
-
-When AI agents create branches, use this naming convention:
-
-```
-feat/ai-{description}       # New features
-fix/ai-{description}        # Bug fixes
-docs/ai-{description}       # Documentation updates
-chore/ai-{description}      # Maintenance tasks
-refactor/ai-{description}   # Code refactoring
-test/ai-{description}       # Adding tests
-```
-
-**Examples:**
-- `feat/ai-landing-page`
-- `fix/ai-login-redirect`
-- `docs/ai-api-endpoints`
-- `chore/ai-update-dependencies`
-
-### Commit Message Convention
-
-AI agents must follow **Conventional Commits** format:
-
-```
-<type>(<scope>): <subject>
-
-[optional body]
-
-[optional footer]
-```
-
-**Types:**
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation only
-- `style`: Code style changes (formatting, semicolons, etc.)
-- `refactor`: Code refactoring without behavior changes
-- `test`: Adding or updating tests
-- `chore`: Build process, dependencies, maintenance
-
-**Scopes (optional but recommended):**
-- `frontend`: React/TypeScript code
-- `backend`: Python/FastAPI code
-- `api`: API endpoints
-- `db`: Database models/migrations
-- `auth`: Authentication-related
-- `ui`: UI components
-
-**Examples:**
-```bash
-feat(frontend): add user authentication
-fix(backend): resolve login redirect bug
-docs(api): update swagger documentation
-refactor(frontend): simplify trip card component
-test(backend): add unit tests for auth service
-chore(deps): update tanstack router to v1.20
-```
-
-### Error Handling for AI Agents
-
-**When Build/Type Check Fails:**
-1. Read error messages carefully
-2. Identify root cause
-3. Fix all errors systematically
-4. Run checks again: `npm run typecheck` (frontend) or check Python syntax (backend)
-5. Only ask user if stuck after 3+ attempts
-
-**When Tests Fail:**
-1. Read test output
-2. Identify failing test cases
-3. Fix the underlying issue (not the test)
-4. Run tests again
-5. Ask user if test logic itself is unclear
-
-**When Conflicts Arise:**
-1. Stop immediately
-2. Notify user about the conflict
-3. Let user resolve it (don't attempt auto-resolution)
-4. Wait for user guidance before continuing
-
-### Code Quality Checklist
-
-Before indicating task completion, AI agents must verify:
-
-**Frontend:**
-- [ ] TypeScript compiles without errors (`npm run typecheck`)
-- [ ] Build succeeds (`npm run build`)
-- [ ] No `any` types used (unless absolutely necessary)
-- [ ] Proper error handling implemented
-- [ ] Components follow existing patterns
-- [ ] Path aliases used (`@/` instead of relative paths)
-
-**Backend:**
-- [ ] Python syntax is valid
-- [ ] No obvious runtime errors
-- [ ] Type hints included
-- [ ] Proper error handling with appropriate HTTP status codes
-- [ ] Follows repository pattern
-
-**Both:**
-- [ ] Follows project conventions (see ARCHITECTURE.md)
-- [ ] No secrets or credentials in code
-- [ ] Documentation updated if needed
-- [ ] Self-review completed
-
-### File Operations
-
-**Creating New Files:**
-- Always check if similar files exist (follow existing patterns)
-- Use correct file naming conventions
-- Place in appropriate directories
-- Update barrel exports if applicable
-
-**Modifying Existing Files:**
-- Read file first to understand current implementation
-- Preserve existing functionality unless instructed otherwise
-- Follow existing code style (don't mix patterns)
-- Check for dependencies on the code being modified
-
-**Deleting Files:**
-- Always ask before deleting
-- Check for references/imports in other files
-- Update imports in dependent files
-
-### Testing Strategy
-
-**Manual Testing:**
-- Describe what was tested
-- Include edge cases considered
-- Note any manual verification steps
-
-**Automated Testing:**
-- Add tests for new features when test framework is configured
-- Ensure existing tests still pass
-- Don't remove tests without explicit permission
-
-### Summary Protocol
-
-When completing a task, AI agents must provide:
-
-1. **Files Changed:** List of created/modified files
-2. **What Was Done:** Brief summary of changes
-3. **Testing Performed:** How it was verified
-4. **Next Steps:** Any follow-up work needed
-5. **Known Issues:** Any caveats or limitations
-
-**Example:**
-```
-✅ Task Complete: Landing Page Implementation
-
-Files Created:
-- src/pages/LandingPage.tsx
-- src/routes/landing.tsx
-- src/routes/home.tsx
-
-Files Modified:
-- src/routes/index.tsx
-
-What Was Done:
-Created public landing page at `/` with hero section and CTAs.
-Moved dashboard to `/home`. Updated auth flow.
-
-Testing:
-- Build passes: npm run build ✓
-- Type check passes: npm run typecheck ✓
-- Verified routes work correctly
-
-Next Steps:
-- Install framer-motion for animations (optional)
-- Add bottom navigation component
-
-Known Issues:
-- None
-```
+- `MUST` follow ambiguity protocol: ask exactly one focused question when missing critical context blocks correctness; if unanswered, apply the safest explicit default and record it under assumptions in the report.
+
+## Subagent invocation policy
+
+- `SHOULD` execute directly for normal implementation.
+- `MUST` use specialist routing when scope matches:
+  - `@debugger` for failing tests/checks with unclear root cause.
+  - `@tester` for validating new/changed behavior before handoff.
+  - `@gh-operator` for GitHub issue/PR operations.
+  - `@pr-reviewer` for complex/high-risk PR review.
+- `MUST` use explicit `@subagent` routing if auto-routing fails once.
+
+## Risk-based routing matrix
+
+| Scenario | Risk level | Route |
+|---|---|---|
+| Failing tests, unclear cause | High | `@debugger` |
+| Behavior change before handoff | Medium | `@tester` |
+| Create/update issue or PR metadata | Medium | `@gh-operator` |
+| Security/auth/data-model/CI workflow changes | High | `@pr-reviewer` + human review (assumption for extra safeguard) |
+| Small docs or scoped refactor with clear checks | Low | Direct execution |
+
+## Execution quality
+
+- `MUST` make the smallest correct change and avoid unrelated refactors.
+- `MUST` fix root cause, not symptoms, unless user requests a temporary workaround.
+- `SHOULD` prefer explicit, readable code and guard clauses over deep nesting.
+- `MUST` handle errors intentionally; no silent failure paths.
+- `MUST` remove dead code instead of commenting it out.
+
+## Definition of done contract
+
+- `MUST` include a completion report with all of:
+  - commands run
+  - key results
+  - what is verified vs not verified
+  - residual risks/limitations
+- `MUST` avoid claiming "done" or "fixed" without command evidence.
+
+## Verification before done
+
+- `MUST` run relevant verify commands for touched areas (frontend/backend) and report outcomes.
+- `MUST` compare expected before/after behavior for behavior changes.
+- `MUST` verify UI changes on desktop and mobile (manual verification allowed; include what was checked).
+- `SHOULD` call out skipped checks with reason (for example, missing env/secrets or unavailable service).
+
+## Security non-negotiables
+
+- `MUST` never commit secrets/credential files (`.env*`, `*.pem`, `*.key`, `credentials*.json`).
+- `MUST` scan staged changes for secrets/tokens before commit.
+- `MUST` treat these keys as high sensitivity: `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `GOOGLE_API_KEY`, `BRAVE_API_KEY`, `REDIS_URL`, `SECRET_KEY` (from `SETUP.md`, `backend/.env.example`).
+- `MUST` avoid `eval()`/unsafe dynamic execution with unsanitized input.
+- `MUST` use parameterized ORM/query patterns; never concatenate raw user input into SQL.
+
+## Git and PR standards
+
+- `MUST` follow GitHub Flow: branch from `main`; never commit directly to `main` (from `docs/BRANCHING.md`, `docs/CONTRIBUTING.md`).
+- `MUST` use branch prefixes: `feat/`, `fix/`, `docs/`, `chore/`, `refactor/`, `test/`, `hotfix/` (from `docs/BRANCHING.md`).
+- `MUST` use Conventional Commits `type(scope): description`; keep subject under 72 chars (from `docs/COMMITS.md`).
+- `MUST` include issue linkage in PR body (for example `Closes #123`) (from `.github/PULL_REQUEST_TEMPLATE.md`, `docs/PULL_REQUESTS.md`).
+- `MUST` not force-push to `main` or rewrite shared history (from `docs/PULL_REQUESTS.md`).
+
+## Scope-control rules
+
+- `MUST` keep bugfix PRs free of unrelated refactors.
+- `MUST` keep one concern per PR (feature/fix/docs/chore) (from `docs/BRANCHING.md`, `docs/PULL_REQUESTS.md`).
+- `MUST` propose splitting when a PR touches more than 3 unrelated concerns (baseline safeguard adopted in this file).
+
+## Critical paths and extra review triggers
+
+- Sensitive paths requiring extra care:
+  - Auth/session: `backend/app/api/auth.py`, `backend/app/api/deps.py`, `backend/app/db/supabase.py`, `frontend/atla/src/routes/login.tsx`, `frontend/atla/src/routes/signup.tsx` (from project structure and auth context in `README.md`, `ARCH.md`).
+  - Secrets/config: `backend/app/config.py`, `backend/.env.example`, `frontend/atla/.env.example` (from `SETUP.md`, repo structure).
+  - Data model/schema: `backend/app/models/*.py`, `backend/alembic/versions/*.py` (from `ARCH.md`).
+  - AI behavior/tooling: `backend/app/ai/**`, `backend/app/services/chat_service.py` (from `ARCH.md`).
+  - CI policy: `.github/workflows/*.yml` (from repo workflows).
+- Extra review trigger: `SHOULD` request at least one human review when any sensitive path above changes (assumption-based safeguard; standard review is optional per docs).
+
+## Team review policy
+
+- Required reviewers for standard PRs: none (from `docs/PULL_REQUESTS.md`).
+- CI expectation for merge: frontend Type Check and Build jobs must pass when the frontend workflow is triggered (from `.github/workflows/frontend-ci.yml`).
+- Lint expectation: frontend lint is disabled in CI; run `npm run lint` locally and report status in PR/testing notes (from `.github/workflows/frontend-ci.yml`).
+- PR scope expectation: one concern per PR; fill testing and issue-link sections in PR template (from `docs/BRANCHING.md`, `.github/PULL_REQUEST_TEMPLATE.md`).
+
+## Delta from global baseline
+
+- Baseline sections included directly in this file: Rule precedence, Agent behavior, Subagent invocation policy, Execution quality, Verification before done, Security non-negotiables, Git and PR standards.
+- Intentional deviations:
+  - Added explicit `MUST`/`SHOULD`/`MAY` tiers for enforceability in this monorepo.
+  - Added command matrix with evidence notes so agents can run checks consistently.
+  - Added assumption-based extra review trigger for sensitive paths while preserving documented optional-review policy.
+
+## Validation notes (assumptions, unresolved gaps)
+
+- Assumption: backend local verify gate is `ruff check app && pytest`; no canonical single backend `verify` command exists in docs.
+- Gap: `docs/PULL_REQUESTS.md` describes backend CI checks, but only `.github/workflows/frontend-ci.yml` is present.
+- Assumption: explicit risk-based routing and >3-concern split rule are team safeguards adopted here (not directly documented elsewhere).
+- Self-check: all required baseline sections present; commands/policies are evidence-backed or marked assumptions; no personal local paths included.
