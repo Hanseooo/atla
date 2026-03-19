@@ -130,6 +130,34 @@ def test_generate_itinerary_endpoint():
         assert data["destination"] == "Cebu"
 
 
+def test_generate_itinerary_response_includes_trip_id_when_persisted():
+    with patch("app.api.chat.ChatService") as mock_chat_service:
+        mock_service = mock_chat_service.return_value
+        mock_itinerary = ItineraryResponse(
+            type="itinerary",
+            session_id="test-session-123",
+            trip_id=42,
+            destination="Cebu",
+            days=5,
+            budget="mid",
+            companions="solo",
+            days_data=[],
+            summary="Generated",
+            highlights=[],
+            estimated_cost={},
+            tips=[],
+            packing_suggestions=[],
+            message="Your itinerary is ready!",
+        )
+        mock_service.generate_itinerary_for_session = AsyncMock(return_value=mock_itinerary)
+
+        response = client.post("/api/chat/test-session-123/generate-itinerary")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["trip_id"] == 42
+
+
 def test_get_chat_history_forbidden_when_service_denies_access():
     with patch("app.api.chat.ChatService") as mock_chat_service:
         mock_service = mock_chat_service.return_value
@@ -208,3 +236,19 @@ def test_generate_itinerary_keeps_non_auth_errors_as_bad_request():
 
         assert response.status_code == 400
         assert response.json()["detail"] == "Trip details are incomplete."
+
+
+def test_generate_itinerary_persistence_error_is_bad_request():
+    with patch("app.api.chat.ChatService") as mock_chat_service:
+        mock_service = mock_chat_service.return_value
+        mock_service.generate_itinerary_for_session = AsyncMock(
+            return_value=ErrorResponse(
+                error_code="PERSISTENCE_ERROR",
+                message="Unable to save your itinerary right now. Please try again.",
+            )
+        )
+
+        response = client.post("/api/chat/test-session-123/generate-itinerary")
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Unable to save your itinerary right now. Please try again."

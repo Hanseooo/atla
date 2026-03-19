@@ -17,7 +17,7 @@ def _raise_for_chat_error(response: ErrorResponse) -> NoReturn:
 @router.post("/", response_model=Union[ClarificationResponse, ItineraryResponse])
 async def chat(
     request: ChatRequest,
-    current_user: Optional[UserProfile] = Depends(get_optional_user)
+    current_user: Optional[UserProfile] = Depends(get_optional_user),
 ):
     """
     Process chat message and return response.
@@ -44,7 +44,7 @@ async def chat(
 async def submit_clarification(
     session_id: str,
     answers: Dict[str, Any] = Body(...),
-    current_user: Optional[UserProfile] = Depends(get_optional_user)
+    current_user: Optional[UserProfile] = Depends(get_optional_user),
 ):
     """Submit answers to clarification questions"""
     service = ChatService()
@@ -65,7 +65,7 @@ async def submit_clarification(
 @router.post("/{session_id}/generate-itinerary", response_model=ItineraryResponse)
 async def generate_itinerary_for_session(
     session_id: str,
-    current_user: Optional[UserProfile] = Depends(get_optional_user)
+    current_user: Optional[UserProfile] = Depends(get_optional_user),
 ):
     """Generate itinerary for an existing complete session intent."""
     service = ChatService()
@@ -84,17 +84,17 @@ async def generate_itinerary_for_session(
 @router.get("/{session_id}", response_model=ChatSession)
 async def get_chat_history(
     session_id: str,
-    current_user: Optional[UserProfile] = Depends(get_optional_user)
+    current_user: Optional[UserProfile] = Depends(get_optional_user),
 ):
     """Get chat session history"""
     service = ChatService()
     user_id = current_user.id if current_user else None
 
-    session = await service.get_session(session_id, user_id)
-    if isinstance(session, ErrorResponse):
-        _raise_for_chat_error(session)
+    chat_session = await service.get_session(session_id, user_id)
+    if isinstance(chat_session, ErrorResponse):
+        _raise_for_chat_error(chat_session)
 
-    if session is None or (not session.current_intent and not session.last_clarification):
+    if chat_session is None or (not chat_session.current_intent and not chat_session.last_clarification):
         raise HTTPException(status_code=404, detail="Session not found")
         
-    return session
+    return chat_session

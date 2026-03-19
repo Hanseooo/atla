@@ -160,6 +160,7 @@ export interface EstimatedCost {
 export interface ItineraryResponse {
   type: "itinerary";
   session_id: string;
+  trip_id?: number;
   destination: string;
   days: number;
   budget?: BudgetLevel;
