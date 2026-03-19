@@ -21,6 +21,7 @@ class ItineraryResponse(BaseModel):
 
     type: Literal["itinerary"] = "itinerary"
     session_id: str
+    trip_id: Optional[int] = None
     destination: str
     days: int
     budget: Optional[str] = None

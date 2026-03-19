@@ -1,7 +1,8 @@
 import logging
 import uuid
+from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union, cast
 
 from app.ai.chains.intent_extraction import (
     extract_intent,
@@ -10,6 +11,9 @@ from app.ai.chains.intent_extraction import (
 )
 from app.ai.chains.itinerary_generation import generate_itinerary
 from app.ai.schemas.intent import TravelIntent
+from app.ai.schemas.itinerary import ItineraryOutput
+from app.db.engine import async_session
+from app.models.trip import Activity, Trip, TripDay
 from app.schemas.chat_api import (
     ChatSession,
     ClarificationResponse,
@@ -25,9 +29,14 @@ class ChatService:
 
     _sessions: Dict[str, ChatSession] = {}
 
-    def __init__(self, redis_url: Optional[str] = None):
+    def __init__(
+        self,
+        redis_url: Optional[str] = None,
+        write_session_factory: Callable[[], Any] = async_session,
+    ):
         # Kept for backward compatibility while Redis is intentionally disabled.
         self.redis_url = redis_url
+        self.write_session_factory = write_session_factory
 
     def _reconcile_session_identity(
         self,
@@ -134,9 +143,96 @@ class ChatService:
         merged_intent.missing_info = merged_intent.get_missing_fields()
         return merged_intent
 
-    def _build_itinerary_response(self, session_id: str, itinerary: Any) -> ItineraryResponse:
+    def _extract_budget_range(self, estimated_cost: Dict[str, Any]) -> Tuple[Optional[int], Optional[int]]:
+        total_min = estimated_cost.get("total_min")
+        total_max = estimated_cost.get("total_max")
+
+        if isinstance(total_min, int) or total_min is None:
+            parsed_min = total_min
+        else:
+            parsed_min = None
+
+        if isinstance(total_max, int) or total_max is None:
+            parsed_max = total_max
+        else:
+            parsed_max = None
+
+        return parsed_min, parsed_max
+
+    def _build_trip_title(self, itinerary: ItineraryOutput) -> str:
+        return f"{itinerary.destination} {itinerary.days}-day itinerary"
+
+    async def _persist_itinerary(
+        self,
+        itinerary: ItineraryOutput,
+        intent: TravelIntent,
+        user_id: str,
+    ) -> int:
+        total_budget_min, total_budget_max = self._extract_budget_range(itinerary.estimated_cost)
+
+        async with self.write_session_factory() as write_session:
+            async with write_session.begin():
+                trip = Trip(
+                    user_id=user_id,
+                    title=self._build_trip_title(itinerary),
+                    summary=itinerary.summary,
+                    destination=itinerary.destination,
+                    days=itinerary.days,
+                    budget=itinerary.budget,
+                    travel_style=[str(style) for style in intent.travel_style],
+                    companions=itinerary.companions,
+                    time_of_year=intent.time_of_year,
+                    total_budget_min=total_budget_min,
+                    total_budget_max=total_budget_max,
+                )
+                write_session.add(trip)
+                await write_session.flush()
+
+                if trip.id is None:
+                    raise RuntimeError("Trip persistence failed to generate an identifier.")
+                persisted_trip_id = cast(int, trip.id)
+
+                for day_data in itinerary.days_data:
+                    trip_day = TripDay(
+                        trip_id=persisted_trip_id,
+                        day_number=day_data.day_number,
+                        title=day_data.title,
+                    )
+                    write_session.add(trip_day)
+                    await write_session.flush()
+
+                    if trip_day.id is None:
+                        raise RuntimeError("Trip day persistence failed to generate an identifier.")
+                    persisted_day_id = cast(int, trip_day.id)
+
+                    for index, activity_data in enumerate(day_data.activities):
+                        activity = Activity(
+                            trip_day_id=persisted_day_id,
+                            name=activity_data.name,
+                            description=activity_data.description,
+                            category=activity_data.category,
+                            latitude=activity_data.latitude,
+                            longitude=activity_data.longitude,
+                            duration_minutes=activity_data.duration_minutes,
+                            cost_min=activity_data.cost_min,
+                            cost_max=activity_data.cost_max,
+                            start_time=activity_data.start_time,
+                            notes=activity_data.notes,
+                            sort_order=index,
+                        )
+                        write_session.add(activity)
+
+                return persisted_trip_id
+
+    def _build_itinerary_response(
+        self,
+        session_id: str,
+        itinerary: ItineraryOutput,
+        trip_id: Optional[int] = None,
+    ) -> ItineraryResponse:
         return ItineraryResponse(
             session_id=session_id,
+            trip_id=trip_id,
             destination=itinerary.destination,
             days=itinerary.days,
             budget=itinerary.budget,
@@ -180,7 +276,19 @@ class ChatService:
 
             itinerary = await generate_itinerary(intent)
             await self._save_session(session)
-            return self._build_itinerary_response(session.id, itinerary)
+
+            trip_id: Optional[int] = None
+            if user_id:
+                try:
+                    trip_id = await self._persist_itinerary(itinerary, intent, user_id)
+                except Exception as error:
+                    logger.error("Failed to persist itinerary for session %s: %s", session.id, error, exc_info=True)
+                    return ErrorResponse(
+                        error_code="PERSISTENCE_ERROR",
+                        message="Unable to save your itinerary right now. Please try again.",
+                    )
+
+            return self._build_itinerary_response(session.id, itinerary, trip_id)
 
         except Exception as e:
             logger.error("Chat processing failed: %s", e, exc_info=True)
@@ -220,7 +328,19 @@ class ChatService:
 
             itinerary = await generate_itinerary(intent)
             await self._save_session(session)
-            return self._build_itinerary_response(session.id, itinerary)
+
+            trip_id: Optional[int] = None
+            if user_id:
+                try:
+                    trip_id = await self._persist_itinerary(itinerary, intent, user_id)
+                except Exception as error:
+                    logger.error("Failed to persist itinerary for session %s: %s", session.id, error, exc_info=True)
+                    return ErrorResponse(
+                        error_code="PERSISTENCE_ERROR",
+                        message="Unable to save your itinerary right now. Please try again.",
+                    )
+
+            return self._build_itinerary_response(session.id, itinerary, trip_id)
 
         except Exception as e:
             logger.error("Clarification processing failed: %s", e, exc_info=True)
@@ -255,7 +375,19 @@ class ChatService:
 
             itinerary = await generate_itinerary(session.current_intent)
             await self._save_session(session)
-            return self._build_itinerary_response(session.id, itinerary)
+
+            trip_id: Optional[int] = None
+            if user_id:
+                try:
+                    trip_id = await self._persist_itinerary(itinerary, session.current_intent, user_id)
+                except Exception as error:
+                    logger.error("Failed to persist itinerary for session %s: %s", session.id, error, exc_info=True)
+                    return ErrorResponse(
+                        error_code="PERSISTENCE_ERROR",
+                        message="Unable to save your itinerary right now. Please try again.",
+                    )
+
+            return self._build_itinerary_response(session.id, itinerary, trip_id)
 
         except Exception as e:
             logger.error("Itinerary generation failed for session %s: %s", session_id, e, exc_info=True)
