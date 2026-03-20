@@ -7,6 +7,7 @@ from app.config import settings
 from app.db.session import get_session
 from app.api import auth
 from app.api import chat
+from app.api import trips
 
 app = FastAPI(
     title="Philippine Travel API",
@@ -26,6 +27,7 @@ app.add_middleware(
 # Include routers
 app.include_router(auth.router)
 app.include_router(chat.router)
+app.include_router(trips.router)
 
 
 @app.get("/health")
