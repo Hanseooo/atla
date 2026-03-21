@@ -2,12 +2,14 @@ import { useEffect } from 'react';
 import { useSendMessage, useSubmitClarification, useChatSession } from '../../hooks/useChat';
 import { useChatStore } from '../../stores/chatStore';
 import { getErrorMessage } from '../../lib/api';
-import type { ChatResponse } from '../../types/chat';
+import { isItineraryResponse, type ChatResponse } from '../../types/chat';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
 import { Button } from '../ui/button';
 import { RefreshCcw } from 'lucide-react';
 import type { AxiosError } from 'axios';
+import { queryClient } from '../../lib/query-client';
+import { tripKeys } from '../../hooks/useTrips';
 
 export function ChatInterface() {
   const { addMessage, sessionId, setSessionId, clearMessages, messages } = useChatStore();
@@ -65,6 +67,12 @@ export function ChatInterface() {
       addMessage({ role: 'assistant', content: `Error: ${response.message}` });
     } else {
       addMessage({ role: 'assistant', content: response.message, data: response });
+
+      // CRITICAL: If an itinerary was generated, it was saved to the DB in the background.
+      // We must invalidate the trips cache so other pages see the new trip immediately.
+      if (isItineraryResponse(response)) {
+        queryClient.invalidateQueries({ queryKey: tripKeys.all });
+      }
     }
   };
 

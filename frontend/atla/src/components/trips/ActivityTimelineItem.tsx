@@ -7,28 +7,29 @@ import {
   Camera,
   Car,
   Bed,
-  Activity
+  Activity as ActivityIcon
 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import type { ActivityData, ActivityCategory } from '../../types/chat';
+import type { Activity } from '../../types/trip';
 import { Button } from '../ui/button';
 
 interface ActivityTimelineItemProps {
-  activity: ActivityData;
+  activity: ActivityData | Activity;
   isLast?: boolean;
 }
 
-const CategoryIcon = ({ category, className }: { category: ActivityCategory, className?: string }) => {
+const CategoryIcon = ({ category, className }: { category: ActivityCategory | string, className?: string }) => {
   switch (category) {
     case 'restaurant': return <Utensils className={className} />;
     case 'attraction': return <Camera className={className} />;
     case 'transport': return <Car className={className} />;
     case 'accommodation': return <Bed className={className} />;
-    default: return <Activity className={className} />;
+    default: return <ActivityIcon className={className} />;
   }
 };
 
-const getCategoryColor = (category: ActivityCategory) => {
+const getCategoryColor = (category: ActivityCategory | string) => {
   switch (category) {
     case 'restaurant': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800';
     case 'attraction': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800';
@@ -39,6 +40,15 @@ const getCategoryColor = (category: ActivityCategory) => {
 };
 
 export function ActivityTimelineItem({ activity, isLast }: ActivityTimelineItemProps) {
+  // Safe access to properties that might not exist on all types
+  const start_time = 'start_time' in activity ? activity.start_time : undefined;
+  const duration_minutes = 'duration_minutes' in activity ? activity.duration_minutes : undefined;
+  const cost_min = 'cost_min' in activity ? activity.cost_min : undefined;
+  const cost_max = 'cost_max' in activity ? activity.cost_max : undefined;
+  const notes = 'notes' in activity ? activity.notes : undefined;
+  const latitude = 'latitude' in activity ? activity.latitude : undefined;
+  const longitude = 'longitude' in activity ? activity.longitude : undefined;
+
   const formatTime = (timeStr?: string) => {
     if (!timeStr) return null;
     try {
@@ -63,8 +73,8 @@ export function ActivityTimelineItem({ activity, isLast }: ActivityTimelineItemP
     return `₱${min?.toLocaleString()} - ₱${max?.toLocaleString()}`;
   };
 
-  const timeString = formatTime(activity.start_time);
-  const costString = formatCost(activity.cost_min, activity.cost_max);
+  const timeString = formatTime(start_time);
+  const costString = formatCost(cost_min, cost_max);
 
   return (
     <div className="relative flex gap-4 pb-6">
@@ -90,10 +100,10 @@ export function ActivityTimelineItem({ activity, isLast }: ActivityTimelineItemP
                   {timeString}
                 </div>
               )}
-              {activity.duration_minutes && (
+              {duration_minutes && (
                 <>
                   <span className="hidden sm:inline text-border">•</span>
-                  <span>{activity.duration_minutes} min</span>
+                  <span>{duration_minutes} min</span>
                 </>
               )}
             </div>
@@ -113,18 +123,18 @@ export function ActivityTimelineItem({ activity, isLast }: ActivityTimelineItemP
           </p>
         )}
 
-        {(activity.notes || (activity.latitude && activity.longitude)) && (
+        {(notes || (latitude && longitude)) && (
           <div className="flex flex-wrap gap-3 mt-2 text-xs">
-            {activity.notes && (
+            {notes && (
               <div className="flex items-start gap-1.5 text-muted-foreground bg-muted/50 p-2 rounded-md flex-1">
                 <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                <span>{activity.notes}</span>
+                <span>{notes}</span>
               </div>
             )}
-            {activity.latitude && activity.longitude && (
+            {latitude && longitude && (
               <Button variant="outline" size="sm" className="h-auto py-1 px-2 text-xs" asChild>
-                <a href={`https://www.google.com/maps/search/?api=1&query=${activity.latitude},${activity.longitude}`} target="_blank" rel="noopener noreferrer">
-                  <MapPin className="h-3 w-3 mr-1" />
+                <a href={`https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`} target="_blank" rel="noopener noreferrer">
+                  <MapPin className="h-3.5 w-3.5 mr-1" />
                   View Map
                 </a>
               </Button>

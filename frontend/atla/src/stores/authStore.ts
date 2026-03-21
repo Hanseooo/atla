@@ -1,8 +1,9 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { supabase, type User, type Session } from '../lib/supabase'
-import { get as apiGet, post as apiPost } from '../lib/api'
+import api from '../lib/api'
 import { router } from '../router'
+import { queryClient } from '../lib/query-client'
 import type { UserProfile, CheckUsernameResponse } from '../types'
 
 interface ProfileCreationError {
@@ -26,6 +27,7 @@ interface AuthState {
   signOut: () => Promise<void>
   checkUsername: (username: string) => Promise<CheckUsernameResponse>
   createUserProfile: (username: string, email: string) => Promise<void>
+  updateProfile: (data: { email?: string; avatar_url?: string; preferences?: Record<string, unknown> }) => Promise<void>
   retryProfileCreation: () => Promise<void>
   clearProfileError: () => void
   setUser: (user: User | null) => void
@@ -50,20 +52,39 @@ export const useAuthStore = create<AuthState>()(
         try {
           const { data: { session } } = await supabase.auth.getSession()
           
+          // Set session in state first so api.ts interceptor can use the token!
+          set({ session, user: session?.user ?? null })
+
           // If session exists, fetch user profile
           let profile: UserProfile | null = null
           if (session?.user) {
             try {
-              profile = await apiGet<UserProfile>('/auth/me')
+              const response = await api.get<UserProfile>('/auth/me')
+              profile = response.data
             } catch {
-              // Profile doesn't exist yet (edge case)
-              console.warn('Profile not found for user:', session.user.id)
+              // Profile doesn't exist yet (edge case from email confirmation)
+              console.warn('Profile not found for user, attempting to create one automatically...')
+              
+              // Safety Net: Auto-create profile if missing
+              if (session.user.email) {
+                try {
+                  const fallbackUsername = session.user.email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '') + Math.floor(Math.random() * 1000);
+                  const username = session.user.user_metadata?.username || fallbackUsername;
+                  
+                  const response = await api.post<UserProfile>('/auth/profile', {
+                    username: username.toLowerCase(),
+                    email: session.user.email,
+                  })
+                  profile = response.data
+                  console.log('Profile auto-created successfully during initialization!');
+                } catch (createError) {
+                  console.error('Auto-creation failed during init:', createError);
+                }
+              }
             }
           }
           
           set({ 
-            session,
-            user: session?.user ?? null,
             profile,
             isInitialized: true 
           })
@@ -94,12 +115,29 @@ export const useAuthStore = create<AuthState>()(
           // Fetch user profile after login
           let profile: UserProfile | null = null
           try {
-            profile = await apiGet<UserProfile>('/auth/me')
+            const response = await api.get<UserProfile>('/auth/me')
+            profile = response.data
           } catch {
-            // Profile doesn't exist - this is an edge case
-            // User might have been created before the trigger existed
-            console.warn('Profile not found, creating...')
-            // Profile will be created on first API call that needs it
+            // Profile doesn't exist (likely due to email confirmation delay)
+            console.warn('Profile not found, attempting to create one automatically...')
+            
+            // Safety Net: Auto-create profile if missing
+            if (data.user?.email) {
+              try {
+                // Generate a fallback username if metadata is missing
+                const fallbackUsername = data.user.email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '') + Math.floor(Math.random() * 1000);
+                const username = data.user.user_metadata?.username || fallbackUsername;
+                
+                const response = await api.post<UserProfile>('/auth/profile', {
+                  username: username.toLowerCase(),
+                  email: data.user.email,
+                })
+                profile = response.data
+                console.log('Profile auto-created successfully!');
+              } catch (createError) {
+                console.error('Auto-creation failed:', createError);
+              }
+            }
           }
           
           set({ 
@@ -136,13 +174,13 @@ export const useAuthStore = create<AuthState>()(
           // Step 2: Create/enrich profile via backend API
           // This updates the trigger-created profile with username
           try {
-            const profileResponse = await apiPost<UserProfile>('/auth/profile', {
+            const response = await api.post<UserProfile>('/auth/profile', {
               username,
               email,
             })
             
             set({ 
-              profile: profileResponse,
+              profile: response.data,
               isLoading: false 
             })
           } catch (profileError: unknown) {
@@ -172,20 +210,21 @@ export const useAuthStore = create<AuthState>()(
       
       // Check username availability
       checkUsername: async (username: string): Promise<CheckUsernameResponse> => {
-        return await apiGet<CheckUsernameResponse>(`/auth/check-username?username=${encodeURIComponent(username)}`)
+        const response = await api.get<CheckUsernameResponse>(`/auth/check-username?username=${encodeURIComponent(username)}`)
+        return response.data
       },
       
       // Create user profile (called separately or for retry)
       createUserProfile: async (username: string, email: string) => {
         set({ isLoading: true, profileCreationError: null })
         try {
-          const profileResponse = await apiPost<UserProfile>('/auth/profile', {
+          const response = await api.post<UserProfile>('/auth/profile', {
             username,
             email,
           })
           
           set({
-            profile: profileResponse,
+            profile: response.data,
             isLoading: false,
             profileCreationError: null
           })
@@ -202,6 +241,18 @@ export const useAuthStore = create<AuthState>()(
         }
       },
       
+      // Update user profile
+      updateProfile: async (data) => {
+        set({ isLoading: true });
+        try {
+          const response = await api.patch<UserProfile>('/auth/profile', data);
+          set({ profile: response.data, isLoading: false });
+        } catch (error) {
+          set({ isLoading: false });
+          throw error;
+        }
+      },
+
       // Retry profile creation with stored credentials
       retryProfileCreation: async () => {
         const state = get()
@@ -229,6 +280,8 @@ export const useAuthStore = create<AuthState>()(
       signOut: async () => {
         await supabase.auth.signOut()
         set({ user: null, session: null, profile: null, profileCreationError: null })
+        // Clear all React Query caches (Trips, Places, etc.) to prevent data bleed between accounts
+        queryClient.clear()
         // Navigate to login page after logout
         router.navigate({ to: '/login' })
       },
